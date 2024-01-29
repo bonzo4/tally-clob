@@ -18,94 +18,90 @@ impl ChoiceMarket {
     pub const SIZE: usize = DISCRIMINATOR_SIZE
     + (F64_SIZE * 3);
 
-    pub fn buy_order_by_shares(
-        &mut self, 
-        market_pot: f64, 
-        shares_to_buy: f64
+
+    pub fn get_buy_order_price(
+        &mut self, market_pot: f64, shares_to_buy: f64,
     ) -> Result<f64> {
 
-        let new_liquidity = self
-        .get_buy_price_by_shares(market_pot, shares_to_buy)
-        .unwrap();
-
-        self.add_to_pot(new_liquidity)?;
-        
-        Ok(new_liquidity)
-    }
-
-    pub fn sell_order_by_shares(
-        &mut self, 
-        market_pot: f64, 
-        shares_to_sell: f64
-    ) -> Result<f64> {
-        let withdraw_liqudity = self
-            .sell_price_by_shares(
-                market_pot, 
-                shares_to_sell,
-                0.0,
-                self.price
-            ).unwrap();
-        
-        let _ = self
-            .withdraw_from_pot(withdraw_liqudity)
-            .unwrap();
-
-        Ok(withdraw_liqudity)
-    }
-
-    pub fn get_buy_price_by_shares(
-        &mut self,
-        market_pot: f64,
-        shares_to_buy: f64,
-    ) -> Result<f64> {
-
-        pub fn total_buy_price(market: &mut ChoiceMarket, market_pot: f64, shares_to_buy: f64, shares: f64, total_price: f64, price: f64) -> Result<f64> {
+        pub fn total_buy_price(
+            market: &mut ChoiceMarket, market_pot: f64, shares_to_buy: f64, price: f64, shares: f64, total_price: f64
+        ) -> Result<f64> {
 
             if shares >= shares_to_buy {
                 return Ok(price)
             }
 
             let shares_to_inc = if (shares_to_buy - shares) > 1.00 {1.00} else {shares_to_buy - shares};
-    
-            let new_price = (market.total_pot + (price * shares_to_inc))/ market_pot;
+            let old_price = price * shares_to_inc;
+            let new_price = (market.total_pot + old_price) / (market_pot + old_price);
 
             Ok(total_buy_price(
-                market,
-                market_pot, 
-                shares_to_buy, 
-                shares + shares_to_inc, 
-                total_price + price, 
-                new_price
+                market, market_pot, shares_to_buy, new_price, shares + shares_to_inc, total_price + price, 
             )?)
         }
 
-        Ok(total_buy_price(self, market_pot, shares_to_buy, self.price, 0.0,  0.0)?)
+        Ok(total_buy_price(
+            self, market_pot, shares_to_buy, self.price, 0.0, 0.0,  
+        )?)
+    }
+
+    pub fn get_sell_order_price(
+        &self, 
+        market_pot: f64, 
+        shares_to_sell: f64
+    ) -> Result<f64> {
+
+        pub fn total_sell_price(market: &ChoiceMarket, market_pot: f64, shares_to_sell: f64, total_withdrawn: f64, price: f64) -> Result<f64> {
+            if shares_to_sell <= 0.0 {
+                return Ok(price)
+            }
+    
+            let shares_to_dec = if shares_to_sell < 1.00 {1.00} else {shares_to_sell};
+            let old_price = price * shares_to_dec;
+            let new_price = (market.total_pot + old_price) / (market_pot + old_price);
+    
+            Ok(total_sell_price(
+                    market, market_pot, shares_to_sell - shares_to_dec, total_withdrawn, new_price
+                )?)
+        }
+
+        Ok(total_sell_price(
+            self, market_pot, shares_to_sell, 0.0, self.price
+        )?)
+    }
+
+    pub fn get_buy_order_shares(
+        &mut self, market_pot: f64, buy_price: f64
+    ) -> Result<f64> {
+        
+        let mut shares = 0.0;
+        let mut total_price  = 0.0;
+        
+        while total_price < buy_price {
+            
+            let new_price = (self.total_pot + self.price) / (market_pot + self.price);
+            total_price += new_price;
+            shares += 1.0;
+        }
+
+        Ok(shares)
 
     }
 
-    pub fn sell_price_by_shares(
-        &self, 
-        market_pot: f64, 
-        shares_to_sell: f64,
-        total_withdrawn: f64,
-        mut price: f64
+    pub fn get_sell_order_shares(
+        &self, market_pot: f64, sell_price: f64
     ) -> Result<f64> {
+        
+        let mut shares = 0.0;
+        let mut total_price = 0.0;
 
-        if shares_to_sell <= 0.0 {
-            return Ok(price)
+        while total_price < sell_price {
+            let new_price = (self.total_pot - self.price) / (market_pot - self.price);
+            total_price += new_price;
+            shares += 1.0;
         }
 
-        let shares_to_dec = if shares_to_sell < 1.00 {1.00} else {shares_to_sell};
-
-        price = (self.total_pot - (price * shares_to_dec)) / market_pot;
-
-        Ok(self
-            .sell_price_by_shares(
-                market_pot,
-                shares_to_sell - shares_to_dec,
-                total_withdrawn, 
-                price
-            ).unwrap())
+        Ok(shares)
     }
    
 

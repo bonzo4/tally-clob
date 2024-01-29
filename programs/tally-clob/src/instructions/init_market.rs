@@ -7,7 +7,6 @@ pub fn init_market(
     title: String,
     choice_count: u8,
     choices: Vec<ChoiceMarket>,
-    start_time: i64,
     fair_launch_start: i64,
     fair_launch_end: i64,
     trading_start: i64,
@@ -19,7 +18,6 @@ pub fn init_market(
     ctx.accounts.market.choice_count = choice_count;
     ctx.accounts.market.choices = choices;
     ctx.accounts.market.market_status = MarketStatus::Intializing;
-    ctx.accounts.market.start_time = start_time;
     ctx.accounts.market.fair_launch_start = fair_launch_start;
     ctx.accounts.market.fair_launch_end = fair_launch_end;
     ctx.accounts.market.trading_start = trading_start;
