@@ -2,6 +2,8 @@ use std::ops::{AddAssign, SubAssign};
 
 use anchor_lang::prelude::*;
 
+use crate::errors::TallyClobErrors;
+
 use super::{DISCRIMINATOR_SIZE, F64_SIZE, U8_SIZE};
 
 #[account]
@@ -16,6 +18,7 @@ impl User {
     + F64_SIZE;
 
     pub fn add_to_balance(&mut self, amount: f64) -> Result<&Self> {
+        require!(amount > 0.0, TallyClobErrors::AmountToAddTooLow);
 
         self
             .balance
@@ -26,6 +29,8 @@ impl User {
     }
 
     pub fn withdraw_from_balance(&mut self, amount: f64) -> Result<&Self>  {
+        require!(amount > 0.0, TallyClobErrors::AmountToWithdrawTooLow);
+        require!(amount <= self.balance, TallyClobErrors::BalanceTooLow);
 
         self
             .balance

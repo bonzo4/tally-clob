@@ -14,7 +14,6 @@ pub struct Market {
     pub choice_count: u8,
     pub choices: Vec<ChoiceMarket>,
     pub market_status: MarketStatus,
-    pub start_time: i64,
     pub fair_launch_start: i64,
     pub fair_launch_end: i64,
     pub trading_start: i64,
@@ -26,56 +25,51 @@ impl Market {
     pub const CHOICE_MAX_LENGTH: usize = 5;
 
     pub const SIZE: usize = DISCRIMINATOR_SIZE
-    + U8_SIZE // bump
-    + vec_size(CHAR_SIZE, Market::TITLE_MAX_LENGTH) // title
-    + F64_SIZE // total_pot
-    + U8_SIZE // choice_count
-    + vec_size(ChoiceMarket::SIZE, Market::CHOICE_MAX_LENGTH) // choices
-    + ENUM_SIZE // status
-    + (I64_SIZE * 5); // timestamps
+        + U8_SIZE // bump
+        + vec_size(CHAR_SIZE, Market::TITLE_MAX_LENGTH) // title
+        + F64_SIZE // total_pot
+        + U8_SIZE // choice_count
+        + vec_size(ChoiceMarket::SIZE, Market::CHOICE_MAX_LENGTH) // choices
+        + ENUM_SIZE // status
+        + (I64_SIZE * 5); // timestamps
 
-    pub fn buy_order_by_shares(&mut self, choice_index: usize, amount: f64) -> Result<f64> {
-        
-        let order_price = self.
-            get_choice_price_by_shares(choice_index, amount)?;
 
-    
-        self
-            .add_to_pot(order_price)?
-            .reprice_choices()?;
 
-        Ok(order_price)
-    }
-
-    pub fn get_choice_price_by_shares(&mut self, choice_index: usize, amount: f64) -> Result<f64> {
+    pub fn get_buy_order_price(&mut self, choice_index: usize, shares_to_buy: f64) -> Result<f64> {
         let order_price = self.choices
             .get_mut(choice_index)
-            .ok_or(TallyClobErrors::ChoiceNotFound)
-            .unwrap()
-            .get_buy_price_by_shares(self.total_pot, amount)?;
+            .ok_or(TallyClobErrors::ChoiceNotFound)?
+            .get_buy_order_price(self.total_pot, shares_to_buy)?;
 
         Ok(order_price)
-
     }
 
-    pub fn sell_order_by_shares(&mut self, choice_index: usize, amount: f64) -> Result<f64> {
-        
+    pub fn get_sell_order_price(&mut self, choice_index: usize, shares_to_sell: f64) -> Result<f64> {
         let order_price = self.choices
             .get_mut(choice_index)
-            .ok_or(TallyClobErrors::ChoiceNotFound)
-            .unwrap()
-            .sell_order_by_shares(
-                self.total_pot, 
-                amount
-            ).unwrap();
-
-    
-        let _ = self.add_to_pot(order_price);
-        let _ = self.reprice_choices();
+            .ok_or(TallyClobErrors::ChoiceNotFound)?
+            .get_sell_order_price(self.total_pot, shares_to_sell)?;
 
         Ok(order_price)
     }
 
+    pub fn get_buy_order_shares(&mut self, choice_index: usize, buy_price: f64) -> Result<f64> {
+        let order_shares = self.choices
+            .get_mut(choice_index)
+            .ok_or(TallyClobErrors::ChoiceNotFound)?
+            .get_buy_order_shares(self.total_pot, buy_price)?;
+
+        Ok(order_shares)
+    }
+
+    pub fn get_sell_order_shares(&mut self, choice_index: usize, sell_price: f64) -> Result<f64> {
+        let order_shares = self.choices
+            .get_mut(choice_index)
+            .ok_or(TallyClobErrors::ChoiceNotFound)?
+            .get_sell_order_shares(self.total_pot, sell_price)?;
+
+        Ok(order_shares)
+    }
 
     pub fn reprice_choices(&mut self) -> Result<&mut Self> {
 
@@ -84,12 +78,6 @@ impl Market {
         }
         
        Ok(self)
-    }
-
-    pub fn get_new_price(&self, choice: &ChoiceMarket) -> Result<f64> {
-        let new_price = choice.total_pot / self.total_pot;
-
-        Ok(new_price)
     }
 
     pub fn add_to_pot(&mut self, amount: f64) -> Result<&mut Self> {
@@ -103,6 +91,17 @@ impl Market {
         Ok(self)
     }
 
+    pub fn add_to_choice_pot(&mut self, choice_index: usize, amount: f64) -> Result<&mut Self> {
+        require!(amount > 0.0, TallyClobErrors::AmountToAddTooLow);
+
+        self.choices
+            .get_mut(choice_index)
+            .ok_or(TallyClobErrors::ChoiceNotFound)?
+            .add_to_pot(amount)?;
+
+        Ok(self)
+    }
+
     pub fn withdraw_from_pot(&mut self, amount: f64) -> Result<&mut Self> {
         require!(amount > 0.0, TallyClobErrors::AmountToWithdrawTooLow);
         require!(amount <= self.total_pot, TallyClobErrors::AmountToWithdrawTooGreat);
@@ -110,6 +109,18 @@ impl Market {
         self
             .total_pot
             .sub_assign(amount);
+        Ok(self)
+    }
+
+    pub fn withdraw_from_choice_pot(&mut self, choice_index: usize, amount: f64) -> Result<&mut Self> {
+        require!(amount > 0.0, TallyClobErrors::AmountToWithdrawTooLow);
+        require!(amount <= self.total_pot, TallyClobErrors::AmountToWithdrawTooGreat);
+
+        self.choices
+            .get_mut(choice_index)
+            .ok_or(TallyClobErrors::ChoiceNotFound)?
+            .withdraw_from_pot(amount)?;
+
         Ok(self)
     }
 }

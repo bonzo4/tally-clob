@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 
-use crate::{errors::TallyClobErrors, Market, MarketPortfolio, User};
+use crate::{errors::TallyClobErrors, utils::clock, Market, MarketPortfolio, User};
 
 pub fn sell_choice_by_shares(
     ctx: Context<SellChoiceByShares>, 
@@ -8,17 +8,34 @@ pub fn sell_choice_by_shares(
     shares: f64
 ) -> Result<()> {
 
-    let choice_portfolio = ctx.accounts
-        .market_portfolio
-        .choice_portfolio
-        .get_mut(choice_index)
-        .ok_or(TallyClobErrors::ChoicePortfolioNotFound)
-        .unwrap();
+    // check for correct selling period
+    let now = clock::current_timestamp();
 
-    let _ = ctx.accounts.market
-        .sell_order_by_shares(choice_index, shares);
+    let is_intializing = ctx.accounts.market.fair_launch_start > now;
 
-    choice_portfolio.shares = choice_portfolio.shares - shares;
+    require!(!is_intializing, TallyClobErrors::MarketIntializing);
+
+    let is_trading_period = ctx.accounts.market.trading_start < now 
+        && ctx.accounts.market.trading_end > now;
+
+    require!(is_trading_period, TallyClobErrors::NotSellingPeriod);
+
+    // get order price
+    let order_price =  ctx.accounts.market.get_sell_order_price(choice_index, shares)?;
+
+    // check user balance
+    require!(order_price <= ctx.accounts.user.balance, TallyClobErrors::BalanceTooLow);
+
+    // subtract from user balance
+    ctx.accounts.user.withdraw_from_balance(order_price)?;
+
+    // adjust market prices
+    ctx.accounts.market
+        .add_to_pot(order_price)?
+        .reprice_choices()?;
+    
+    // add shares to user portfolio
+    ctx.accounts.market_portfolio.add_to_portfolio(choice_index, shares)?;
 
     Ok(())
 }
