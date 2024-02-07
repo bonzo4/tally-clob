@@ -6,11 +6,13 @@ use crate::errors::TallyClobErrors;
 
 use super::{DISCRIMINATOR_SIZE, F64_SIZE};
 
-#[account]
+#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
 pub struct ChoiceMarket {
+    pub id: u64,
     pub total_pot: f64,
     pub shares: f64,
     pub price: f64,
+    pub winning_choice: bool
 }
 
 impl ChoiceMarket {
