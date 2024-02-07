@@ -11,42 +11,32 @@ pub mod errors;
 pub mod state;
 pub mod utils;
 
-declare_id!("6tRBcUULjwksbwqp2DBKo84WAHVQUXYKhBAZ6Q2r1Lca");
+declare_id!("CPtwPtwjQhPbfZYsHiWskky7gRtBcRzFsh4HvsQ5tmXe");
 
 #[program]
-pub mod tally_wallets {
+pub mod tally_clob {
     use self::utils::is_authorized;
 
     use super::*;
 
     pub fn init_market(
         ctx: Context<InitMarket>,
-        title: String,
-        choice_count: u8,
-        choices: Vec<ChoiceMarket>,
-        fair_launch_start: i64,
-        fair_launch_end: i64,
-        trading_start: i64,
-        trading_end: i64
+        sub_markets: Vec<SubMarket>
     ) -> Result<()> {
         is_authorized(ctx.accounts.signer.key())?;
 
         instructions::init_market(
             ctx,
-            title,
-            choice_count,
-            choices,
-            fair_launch_start,
-            fair_launch_end,
-            trading_start,
-            trading_end
+            sub_markets
         )
     }
 
     pub fn init_wallet(
         ctx: Context<InitWallet>,
-    ) -> Result<()> {
-        instructions::init_wallet(ctx)
+    ) -> Result<Pubkey> {
+        let user_key = instructions::init_wallet(ctx)?;
+
+        Ok(user_key)
     }
 
     pub fn add_to_balance(
@@ -67,20 +57,32 @@ pub mod tally_wallets {
         instructions::withdraw_from_balance(ctx, amount)
     }
 
-    pub fn buy_choice_by_shares(
-        ctx: Context<BuyChoiceByShares>,
-        choice_index: usize,
-        shares: f64
+    pub fn bulk_buy_by_price(
+        ctx: Context<BulkBuyByPrice>,
+        orders: Vec<Order>
     ) -> Result<()> {
-        instructions::buy_choice_by_shares(ctx, choice_index, shares)
+        instructions::bulk_buy_by_price(ctx, orders)
     }
 
-    pub fn sell_choice_by_shares(
-        ctx: Context<SellChoiceByShares>,
-        choice_index: usize,
-        shares: f64
+    pub fn bulk_buy_by_shares(
+        ctx: Context<BulkBuyByShares>,
+        orders: Vec<Order>
     ) -> Result<()> {
-        instructions::sell_choice_by_shares(ctx, choice_index, shares)
+        instructions::bulk_buy_by_shares(ctx, orders)
+    }
+
+    pub fn bulk_sell_by_price(
+        ctx: Context<BulkSellByPrice>,
+        orders: Vec<Order>
+    ) -> Result<()> {
+        instructions::bulk_sell_by_price(ctx, orders)
+    }
+
+    pub fn bulk_sell_by_shares(
+        ctx: Context<BulkSellByShares>,
+        orders: Vec<Order>
+    ) -> Result<()> {
+        instructions::bulk_sell_by_shares(ctx, orders)
     }
 
     pub fn resolve_market(

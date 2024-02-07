@@ -1,26 +1,49 @@
+use std::ops::{AddAssign, SubAssign};
+
 use anchor_lang::prelude::*;
 
-use crate::{DISCRIMINATOR_SIZE, F64_SIZE, U8_SIZE};
+use crate::{errors::TallyClobErrors, BOOL_SIZE, DISCRIMINATOR_SIZE, F64_SIZE, U64_SIZE};
 
-#[account]
+#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
 pub struct ChoicePortfolio {
-    pub choice_index: usize,
-    pub shares: f64
+    pub choice_id: u64,
+    pub shares: f64,
+    pub claimed: bool
 }
 
 impl ChoicePortfolio {
     pub const SIZE: usize = DISCRIMINATOR_SIZE
-    + U8_SIZE
+    + U64_SIZE
     + F64_SIZE
-    + F64_SIZE;
+    + F64_SIZE
+    + BOOL_SIZE;
 
     pub fn new(
-        choice_index: usize, 
+        choice_id: u64, 
         shares: f64
     ) -> ChoicePortfolio {
         ChoicePortfolio {
-            choice_index,
-            shares
+            choice_id,
+            shares,
+            claimed: false
         }
-    } 
+    }
+
+    pub fn add_to_portfolio(&mut self, shares: f64) -> Result<&Self> {
+        require!(shares > 0.0, TallyClobErrors::AmountToAddTooLow);
+        
+        self.shares
+            .add_assign(shares);
+
+        Ok(self)
+    }
+
+    pub fn withdraw_from_portfolio(&mut self, shares: f64) -> Result<&Self> {
+        require!(self.shares >= shares, TallyClobErrors::NotEnoughSharesToSell);
+
+        self.shares
+            .sub_assign(shares);
+        
+        Ok(self)
+    }
 }

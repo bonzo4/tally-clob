@@ -1,27 +1,12 @@
 use anchor_lang::prelude::*;
 
-use crate::state::{ChoiceMarket, Market, MarketStatus};
+use crate::{state:: Market, SubMarket};
 
 pub fn init_market(
     ctx: Context<InitMarket>,
-    title: String,
-    choice_count: u8,
-    choices: Vec<ChoiceMarket>,
-    fair_launch_start: i64,
-    fair_launch_end: i64,
-    trading_start: i64,
-    trading_end: i64,
+    sub_markets: Vec<SubMarket>
 ) -> Result<()> {
-
-    ctx.accounts.market.title = title;
-    ctx.accounts.market.total_pot = 0.0;
-    ctx.accounts.market.choice_count = choice_count;
-    ctx.accounts.market.choices = choices;
-    ctx.accounts.market.market_status = MarketStatus::Intializing;
-    ctx.accounts.market.fair_launch_start = fair_launch_start;
-    ctx.accounts.market.fair_launch_end = fair_launch_end;
-    ctx.accounts.market.trading_start = trading_start;
-    ctx.accounts.market.trading_end = trading_end;
+    ctx.accounts.market.sub_markets = sub_markets;
 
     Ok(())
 }
@@ -31,10 +16,10 @@ pub struct InitMarket<'info> {
     #[account(mut)]
     pub signer: Signer<'info>,
     #[account(
-        init,
+        init_if_needed,
         payer = signer,
         space = Market::SIZE, 
-        seeds = [b"markets".as_ref(), signer.key().as_ref()], 
+        seeds = [b"markets".as_ref(), market.key().as_ref()], 
         bump
     )]
     pub market: Account<'info, Market>,

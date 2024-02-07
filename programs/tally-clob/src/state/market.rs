@@ -1,137 +1,145 @@
-use std::ops::{AddAssign, SubAssign};
-
 use anchor_lang::prelude::*;
 
-use crate::errors::TallyClobErrors;
+use crate::{errors::TallyClobErrors, MarketStatus, SubMarket, U8_SIZE};
 
-use super::{vec_size, ChoiceMarket, CHAR_SIZE, DISCRIMINATOR_SIZE, ENUM_SIZE, F64_SIZE, I64_SIZE, U8_SIZE };
+use super::{vec_size, DISCRIMINATOR_SIZE};
 
 #[account]
 pub struct Market {
     pub bump: u8,
-    pub title: String,
-    pub total_pot: f64,
-    pub choice_count: u8,
-    pub choices: Vec<ChoiceMarket>,
-    pub market_status: MarketStatus,
-    pub fair_launch_start: i64,
-    pub fair_launch_end: i64,
-    pub trading_start: i64,
-    pub trading_end: i64,
+    pub sub_markets: Vec<SubMarket>
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone, PartialEq)]
+pub struct Order {
+    pub amount: f64,
+    pub sub_market_id: u64,
+    pub choice_id: u64
 }
 
 impl Market {
-    pub const TITLE_MAX_LENGTH: usize = 100;
-    pub const CHOICE_MAX_LENGTH: usize = 5;
+    pub const MARKET_MAX_LENGTH: usize = 10;
 
     pub const SIZE: usize = DISCRIMINATOR_SIZE
-        + U8_SIZE // bump
-        + vec_size(CHAR_SIZE, Market::TITLE_MAX_LENGTH) // title
-        + F64_SIZE // total_pot
-        + U8_SIZE // choice_count
-        + vec_size(ChoiceMarket::SIZE, Market::CHOICE_MAX_LENGTH) // choices
-        + ENUM_SIZE // status
-        + (I64_SIZE * 5); // timestamps
+        + U8_SIZE
+        + vec_size(SubMarket::SIZE, Market::MARKET_MAX_LENGTH); //sub_markets
 
-
-
-    pub fn get_buy_order_price(&mut self, choice_index: usize, shares_to_buy: f64) -> Result<f64> {
-        let order_price = self.choices
-            .get_mut(choice_index)
-            .ok_or(TallyClobErrors::ChoiceNotFound)?
-            .get_buy_order_price(self.total_pot, shares_to_buy)?;
-
-        Ok(order_price)
-    }
-
-    pub fn get_sell_order_price(&mut self, choice_index: usize, shares_to_sell: f64) -> Result<f64> {
-        let order_price = self.choices
-            .get_mut(choice_index)
-            .ok_or(TallyClobErrors::ChoiceNotFound)?
-            .get_sell_order_price(self.total_pot, shares_to_sell)?;
-
-        Ok(order_price)
-    }
-
-    pub fn get_buy_order_shares(&mut self, choice_index: usize, buy_price: f64) -> Result<f64> {
-        let order_shares = self.choices
-            .get_mut(choice_index)
-            .ok_or(TallyClobErrors::ChoiceNotFound)?
-            .get_buy_order_shares(self.total_pot, buy_price)?;
-
-        Ok(order_shares)
-    }
-
-    pub fn get_sell_order_shares(&mut self, choice_index: usize, sell_price: f64) -> Result<f64> {
-        let order_shares = self.choices
-            .get_mut(choice_index)
-            .ok_or(TallyClobErrors::ChoiceNotFound)?
-            .get_sell_order_shares(self.total_pot, sell_price)?;
-
-        Ok(order_shares)
-    }
-
-    pub fn reprice_choices(&mut self) -> Result<&mut Self> {
-
-        for choice in self.choices.iter_mut() {
-            choice.reprice(self.total_pot)?;
-        }
+    pub fn get_buying_periods(&mut self, orders: &Vec<Order>) -> Result<Vec<MarketStatus>> {
+        let market_periods = orders.iter()
+        .map(|order| order.sub_market_id)
+        .collect::<Vec<u64>>()
+        .iter()
+        .map(|sub_market_id| self
+                .get_sub_market(sub_market_id)
+                .unwrap()
+                .get_buying_period()
+                .unwrap()
+        ).collect();
         
-       Ok(self)
+        Ok(market_periods)
     }
 
-    pub fn add_to_pot(&mut self, amount: f64) -> Result<&mut Self> {
-        require!(amount > 0.0, TallyClobErrors::AmountToAddTooLow);
-
-        self
-            .total_pot
-            .add_assign(amount);
-
-
-        Ok(self)
+    pub fn check_selling_periods(&mut self, orders: &Vec<Order>) -> Result<()> {
+        orders.iter()
+            .map(|order| order.sub_market_id)
+            .collect::<Vec<u64>>()
+            .iter()
+            .for_each(|sub_market_id| {
+                self
+                    .get_sub_market(sub_market_id)
+                    .unwrap()
+                    .check_selling_period()
+                    .unwrap();
+            });
+        
+        Ok(())
     }
 
-    pub fn add_to_choice_pot(&mut self, choice_index: usize, amount: f64) -> Result<&mut Self> {
-        require!(amount > 0.0, TallyClobErrors::AmountToAddTooLow);
-
-        self.choices
-            .get_mut(choice_index)
-            .ok_or(TallyClobErrors::ChoiceNotFound)?
-            .add_to_pot(amount)?;
-
-        Ok(self)
+    pub fn bulk_buy_price(&mut self, orders: &Vec<Order>, market_periods: Vec<MarketStatus>) -> Result<Vec<f64>> {
+        let order_prices = orders.iter()
+            .enumerate()
+            .map(|(order_index, order)| {
+                if market_periods[order_index] == MarketStatus::FairLaunch {
+                    return order.amount * 0.5;
+                } else {
+                    let sub_market_id = &order.sub_market_id;
+                    self.get_sub_market(sub_market_id).unwrap().get_buy_order_price(&order.choice_id, order.amount).unwrap()
+                }
+            })
+            .collect();
+        
+        Ok(order_prices)
     }
 
-    pub fn withdraw_from_pot(&mut self, amount: f64) -> Result<&mut Self> {
-        require!(amount > 0.0, TallyClobErrors::AmountToWithdrawTooLow);
-        require!(amount <= self.total_pot, TallyClobErrors::AmountToWithdrawTooGreat);
-
-        self
-            .total_pot
-            .sub_assign(amount);
-        Ok(self)
+    pub fn bulk_sell_price(&mut self, orders: &Vec<Order>) -> Result<Vec<f64>> {
+        let order_prices =  orders.iter()
+        .map(|order| {
+            self.get_sub_market(&order.sub_market_id)
+            .unwrap()
+            .get_sell_order_price(&order.choice_id, order.amount)
+            .unwrap()
+        }).collect();
+        
+        Ok(order_prices)
     }
 
-    pub fn withdraw_from_choice_pot(&mut self, choice_index: usize, amount: f64) -> Result<&mut Self> {
-        require!(amount > 0.0, TallyClobErrors::AmountToWithdrawTooLow);
-        require!(amount <= self.total_pot, TallyClobErrors::AmountToWithdrawTooGreat);
+    pub fn bulk_buy_shares(&mut self, orders: &Vec<Order>, market_periods: Vec<MarketStatus>) -> Result<Vec<f64>> {
+        let order_shares = orders.iter()
+            .enumerate()
+            .map(|(order_index, order)| {
+                
+                if market_periods[order_index] == MarketStatus::FairLaunch {return order.amount / 0.5}
+                else {
+                    return self
+                    .get_sub_market(&order.sub_market_id)
+                    .unwrap()
+                    .get_buy_order_shares(&order.choice_id, order.amount)
+                    .unwrap();
+                }
+            }).collect();
 
-        self.choices
-            .get_mut(choice_index)
-            .ok_or(TallyClobErrors::ChoiceNotFound)?
-            .withdraw_from_pot(amount)?;
-
-        Ok(self)
+            Ok(order_shares)
     }
+
+    pub fn bulk_sell_shares(&mut self, orders: &Vec<Order>) -> Result<Vec<f64>> {
+        let order_shares = orders.iter()
+            .map(|order| {
+                self
+                    .get_sub_market(&order.sub_market_id)
+                    .unwrap()
+                    .get_sell_order_shares(&order.choice_id, order.amount)
+                    .unwrap()
+            }).collect();
+
+        Ok(order_shares)
+    }
+
+    pub fn adjust_markets_after_buy(&mut self, orders: &Vec<Order>, order_prices: Vec<f64>) -> Result<()> {
+        orders.iter()
+        .enumerate()
+        .for_each(|(order_index,order)| {
+            let order_price = order_prices[order_index];
+            self
+                .get_sub_market(&order.sub_market_id)
+                .unwrap()
+                .add_to_pot(order_price)
+                .unwrap()
+                .add_to_choice_pot(&order.choice_id, order_price)
+                .unwrap()
+                .reprice_choices()
+                .unwrap();
+        });
+        
+        Ok(())
+    }
+
+
+    pub fn get_sub_market(&mut self, sub_market_id: &u64) -> Result<&mut SubMarket> {
+        match self.sub_markets.binary_search_by_key(sub_market_id, |sub_market| sub_market.id) {
+            Ok(index) => Ok(&mut self.sub_markets[index]),
+            Err(_) => err!(TallyClobErrors::SubMarketNotFound),
+        }
+    }
+    
 }
 
-
-#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone, PartialEq, Eq)]
-pub enum MarketStatus {
-    Intializing,
-    FairLaunch,
-    Settlement,
-    Trading,
-    Resolved,
-    Closed
-}
