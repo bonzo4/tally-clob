@@ -23,7 +23,7 @@ impl MarketPortfolio {
                         &order.choice_id
                     ).unwrap();
 
-            require!(portfolio_shares >= order.amount, TallyClobErrors::NotEnoughSharesToSell);
+            require!(portfolio_shares >= order.requested_amount as u64, TallyClobErrors::NotEnoughSharesToSell);
         }
 
         Ok(self)
@@ -35,7 +35,7 @@ impl MarketPortfolio {
                 self.add_to_portfolio(
                     &order.sub_market_id, 
                     &order.choice_id, 
-                    order.amount
+                    order.requested_amount as u64
                 ).unwrap();
             });
 
@@ -49,14 +49,14 @@ impl MarketPortfolio {
                     .sell_from_portfolio(
                         &order.sub_market_id, 
                         &order.choice_id, 
-                        order.amount
+                        order.requested_amount as u64
                     ).unwrap();
             });
 
         Ok(self)
     }
 
-    pub fn add_to_portfolio(&mut self, sub_market_id: &u64, choice_id: &u64, shares: f64) -> Result<&Self> {
+    pub fn add_to_portfolio(&mut self, sub_market_id: &u64, choice_id: &u64, shares: u64) -> Result<&Self> {
         match self
             .get_sub_market_portfolio(sub_market_id) {
                 Ok (sub_market_portfolio) => {
@@ -74,7 +74,7 @@ impl MarketPortfolio {
         Ok(self)
     }
     
-    pub fn sell_from_portfolio(&mut self, sub_market_id: &u64, choice_id: &u64, shares: f64) -> Result<&Self> {
+    pub fn sell_from_portfolio(&mut self, sub_market_id: &u64, choice_id: &u64, shares: u64) -> Result<&Self> {
         self
             .get_sub_market_portfolio(sub_market_id)?
             .sell_from_portfolio(choice_id, shares)?;
@@ -82,7 +82,7 @@ impl MarketPortfolio {
         Ok(self)
     }
 
-    pub fn get_choice_shares(&mut self, sub_market_id: &u64, choice_id: &u64) -> Result<f64> {
+    pub fn get_choice_shares(&mut self, sub_market_id: &u64, choice_id: &u64) -> Result<u64> {
         let choice_shares = self
             .get_sub_market_portfolio(sub_market_id)?
             .get_choice_shares(choice_id)?;

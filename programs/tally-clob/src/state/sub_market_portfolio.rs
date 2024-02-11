@@ -25,7 +25,7 @@ impl SubMarketPortfolio {
         }
     }
          
-    pub fn add_to_portfolio(&mut self, choice_id: &u64, shares: f64) -> Result<&Self> {
+    pub fn add_to_portfolio(&mut self, choice_id: &u64, shares: u64) -> Result<&Self> {
         match self
         .get_choice_market_portfolio(choice_id) {
             Ok(choice_market_portfolio) => {
@@ -43,7 +43,7 @@ impl SubMarketPortfolio {
         Ok(self)
     }
 
-    pub fn sell_from_portfolio(&mut self, choice_id: &u64, shares: f64) -> Result<&Self> {
+    pub fn sell_from_portfolio(&mut self, choice_id: &u64, shares: u64) -> Result<&Self> {
         self
             .get_choice_market_portfolio(choice_id)?
             .withdraw_from_portfolio(shares)?;
@@ -51,7 +51,7 @@ impl SubMarketPortfolio {
         Ok(self)
     }
 
-    pub fn get_choice_shares(&mut self, choice_id: &u64) -> Result<f64> {
+    pub fn get_choice_shares(&mut self, choice_id: &u64) -> Result<u64> {
         let choice_shares = self
             .get_choice_market_portfolio(choice_id)?
             .shares;

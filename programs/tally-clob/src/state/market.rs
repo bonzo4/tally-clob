@@ -12,9 +12,16 @@ pub struct Market {
 
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone, PartialEq)]
 pub struct Order {
-    pub amount: f64,
+    pub requested_amount: f64,
     pub sub_market_id: u64,
-    pub choice_id: u64
+    pub choice_id: u64,
+    pub estimated_amount: f64,
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone, PartialEq)]
+pub struct OrderData {
+    pub market_key: Pubkey,
+    pub user_key: Pubkey,
 }
 
 impl Market {
@@ -60,11 +67,11 @@ impl Market {
             .enumerate()
             .map(|(order_index, order)| {
                 if market_periods[order_index] == MarketStatus::FairLaunch {
-                    return order.amount * 0.5;
-                } else {
-                    let sub_market_id = &order.sub_market_id;
-                    self.get_sub_market(sub_market_id).unwrap().get_buy_order_price(&order.choice_id, order.amount).unwrap()
-                }
+                    return order.requested_amount * 0.5;
+                } 
+                let sub_market_id = &order.sub_market_id;
+                self.get_sub_market(sub_market_id).unwrap().get_buy_order_price(&order.choice_id, order.requested_amount as u64).unwrap()
+                
             })
             .collect();
         
@@ -76,24 +83,24 @@ impl Market {
         .map(|order| {
             self.get_sub_market(&order.sub_market_id)
             .unwrap()
-            .get_sell_order_price(&order.choice_id, order.amount)
+            .get_sell_order_price(&order.choice_id, order.requested_amount as u64)
             .unwrap()
         }).collect();
         
         Ok(order_prices)
     }
 
-    pub fn bulk_buy_shares(&mut self, orders: &Vec<Order>, market_periods: Vec<MarketStatus>) -> Result<Vec<f64>> {
+    pub fn bulk_buy_shares(&mut self, orders: &Vec<Order>, market_periods: Vec<MarketStatus>) -> Result<Vec<u64>> {
         let order_shares = orders.iter()
             .enumerate()
             .map(|(order_index, order)| {
                 
-                if market_periods[order_index] == MarketStatus::FairLaunch {return order.amount / 0.5}
+                if market_periods[order_index] == MarketStatus::FairLaunch {return order.requested_amount as u64 * 4}
                 else {
                     return self
                     .get_sub_market(&order.sub_market_id)
                     .unwrap()
-                    .get_buy_order_shares(&order.choice_id, order.amount)
+                    .get_buy_order_shares(&order.choice_id, order.requested_amount)
                     .unwrap();
                 }
             }).collect();
@@ -101,13 +108,13 @@ impl Market {
             Ok(order_shares)
     }
 
-    pub fn bulk_sell_shares(&mut self, orders: &Vec<Order>) -> Result<Vec<f64>> {
+    pub fn bulk_sell_shares(&mut self, orders: &Vec<Order>) -> Result<Vec<u64>> {
         let order_shares = orders.iter()
             .map(|order| {
                 self
                     .get_sub_market(&order.sub_market_id)
                     .unwrap()
-                    .get_sell_order_shares(&order.choice_id, order.amount)
+                    .get_sell_order_shares(&order.choice_id, order.requested_amount)
                     .unwrap()
             }).collect();
 

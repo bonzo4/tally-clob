@@ -6,6 +6,7 @@ pub use user::*;
 pub use market_portfolio::*;
 pub use sub_market_portfolio::*;
 pub use choice_portfolio::*;
+pub use authorized_user::*;
 
 
 pub mod choice_market;
@@ -16,3 +17,4 @@ pub mod user;
 pub mod market_portfolio;
 pub mod sub_market_portfolio;
 pub mod choice_portfolio;
+pub mod authorized_user;

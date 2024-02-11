@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 
-use crate::{state:: Market, SubMarket};
+use crate::{state:: Market, AuthorizedUser, SubMarket};
 
 pub fn init_market(
     ctx: Context<InitMarket>,
@@ -12,14 +12,21 @@ pub fn init_market(
 }
 
 #[derive(Accounts)]
+#[instruction(market_key: Pubkey)]
 pub struct InitMarket<'info> {
     #[account(mut)]
     pub signer: Signer<'info>,
     #[account(
+        mut,
+        seeds = [b"authorized_users", signer.key().as_ref()],
+        bump = authorized_user.bump
+    )]
+    pub authorized_user: Account<'info, AuthorizedUser>,
+    #[account(
         init_if_needed,
         payer = signer,
         space = Market::SIZE, 
-        seeds = [b"markets".as_ref(), market.key().as_ref()], 
+        seeds = [b"markets".as_ref(), market_key.key().as_ref()], 
         bump
     )]
     pub market: Account<'info, Market>,
