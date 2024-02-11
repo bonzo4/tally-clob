@@ -63,7 +63,7 @@ impl SubMarket {
         err!(TallyClobErrors::MarketClosed)
     }
 
-    pub fn get_buy_order_price(&mut self, choice_id: &u64, shares_to_buy: f64) -> Result<f64> {
+    pub fn get_buy_order_price(&mut self, choice_id: &u64, shares_to_buy: u64) -> Result<f64> {
         let total_pot = self.total_pot;
         let order_price = self
             .get_choice(choice_id)?
@@ -72,7 +72,7 @@ impl SubMarket {
         Ok(order_price)
     }
 
-    pub fn get_sell_order_price(&mut self, choice_id: &u64, shares_to_sell: f64) -> Result<f64> {
+    pub fn get_sell_order_price(&mut self, choice_id: &u64, shares_to_sell: u64) -> Result<f64> {
         let total_pot = self.total_pot;
         let order_price = self
             .get_choice(choice_id)?
@@ -81,7 +81,7 @@ impl SubMarket {
         Ok(order_price)
     }
 
-    pub fn get_buy_order_shares(&mut self, choice_id: &u64, buy_price: f64) -> Result<f64> {
+    pub fn get_buy_order_shares(&mut self, choice_id: &u64, buy_price: f64) -> Result<u64> {
         let total_pot = self.total_pot;
         let order_shares = self
             .get_choice(choice_id)?
@@ -90,7 +90,7 @@ impl SubMarket {
         Ok(order_shares)
     }
 
-    pub fn get_sell_order_shares(&mut self, choice_id: &u64, sell_price: f64) -> Result<f64> {
+    pub fn get_sell_order_shares(&mut self, choice_id: &u64, sell_price: f64) -> Result<u64> {
         let total_pot = self.total_pot;
         let order_shares = self
             .get_choice(choice_id)?

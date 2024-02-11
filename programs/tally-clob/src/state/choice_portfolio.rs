@@ -7,7 +7,7 @@ use crate::{errors::TallyClobErrors, BOOL_SIZE, DISCRIMINATOR_SIZE, F64_SIZE, U6
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
 pub struct ChoicePortfolio {
     pub choice_id: u64,
-    pub shares: f64,
+    pub shares: u64,
     pub claimed: bool
 }
 
@@ -20,7 +20,7 @@ impl ChoicePortfolio {
 
     pub fn new(
         choice_id: u64, 
-        shares: f64
+        shares: u64
     ) -> ChoicePortfolio {
         ChoicePortfolio {
             choice_id,
@@ -29,8 +29,8 @@ impl ChoicePortfolio {
         }
     }
 
-    pub fn add_to_portfolio(&mut self, shares: f64) -> Result<&Self> {
-        require!(shares > 0.0, TallyClobErrors::AmountToAddTooLow);
+    pub fn add_to_portfolio(&mut self, shares: u64) -> Result<&Self> {
+        require!(shares > 0, TallyClobErrors::AmountToAddTooLow);
         
         self.shares
             .add_assign(shares);
@@ -38,7 +38,7 @@ impl ChoicePortfolio {
         Ok(self)
     }
 
-    pub fn withdraw_from_portfolio(&mut self, shares: f64) -> Result<&Self> {
+    pub fn withdraw_from_portfolio(&mut self, shares: u64) -> Result<&Self> {
         require!(self.shares >= shares, TallyClobErrors::NotEnoughSharesToSell);
 
         self.shares

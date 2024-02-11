@@ -37,5 +37,13 @@ pub enum TallyClobErrors {
     #[msg("Bulk order too big")]
     BulkOrderTooBig,
     #[msg("You have already claimed this winnings")]
-    AlreadyClaimed
+    AlreadyClaimed,
+    #[msg("Market already resolved")]
+    MarketAlreadyResolved,
+    #[msg("Estimated shares is too far off from acutal calculation, cancelling order")]
+    SharesEstimationOff,
+    #[msg("Estimated price is to far off from acutal price, cancelling order")]
+    PriceEstimationOff,
+    #[msg("Can only withdraw usdc.")]
+    NotUSDC
 }

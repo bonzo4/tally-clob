@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 
-use crate::{errors::TallyClobErrors, Market, MarketPortfolio, User};
+use crate::{errors::TallyClobErrors, Market, MarketPortfolio, OrderData, User};
 
 pub fn claim_winnings(
     ctx: Context<ClaimWinnings>,
@@ -23,15 +23,15 @@ pub fn claim_winnings(
     // check if user's shares have already been claimed
     require!(!choice_market_portfolio.claimed, TallyClobErrors::AlreadyClaimed);
 
-    let winnings_per_shares = ctx.accounts.market.get_sub_market(&sub_market_id)?.total_pot / ctx.accounts.market.get_sub_market(&sub_market_id)?.get_choice(&choice_id)?.shares;
+    let winnings_per_shares = ctx.accounts.market.get_sub_market(&sub_market_id)?.total_pot 
+    / ctx.accounts.market.get_sub_market(&sub_market_id)?.get_choice(&choice_id)?.shares as f64;
 
-    let total_winnings = winnings_per_shares * choice_market_portfolio.shares;
-
-    // withdraw from total_pot 
-    ctx.accounts.market.get_sub_market(&sub_market_id)?.withdraw_from_pot(total_winnings)?;
+    let total_winnings = winnings_per_shares * choice_market_portfolio.shares as f64;
 
     // withdraw from shares
     choice_market_portfolio.withdraw_from_portfolio(choice_market_portfolio.shares)?;
+
+    choice_market_portfolio.claimed = true;
 
     // add to balance 
     ctx.accounts.user.add_to_balance(total_winnings)?;
@@ -42,22 +42,25 @@ pub fn claim_winnings(
 
 
 #[derive(Accounts)]
+#[instruction(order_data: OrderData)]
 pub struct ClaimWinnings<'info> {
     #[account(mut)]
     pub signer: Signer<'info>,
     #[account(
         mut, 
-        seeds = [b"users", signer.key().as_ref()], 
+        seeds = [b"users",  order_data.user_key.key().as_ref()], 
         bump = user.bump
     )]
     pub user: Account<'info, User>,
-    #[account(mut)]
+    #[account(
+        mut,
+        seeds = [b"markets".as_ref(), order_data.market_key.key().as_ref()],
+        bump = market.bump
+    )]
     pub market: Account<'info, Market>,
     #[account(
-        init_if_needed,
-        payer = signer,
-        space = MarketPortfolio::SIZE,
-        seeds = [market.key().as_ref(), user.key().as_ref()],
+        mut,
+        seeds = [order_data.user_key.key().as_ref(), order_data.market_key.key().as_ref()],
         bump
     )]
     pub market_portfolio: Account<'info, MarketPortfolio>,

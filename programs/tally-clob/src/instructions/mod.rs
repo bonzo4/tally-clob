@@ -8,6 +8,7 @@ pub use init_wallet::*;
 pub use resolve_market::*;
 pub use withdraw_from_balance::*;
 pub use claim_winnings::*;
+pub use authorize_user::*;
 
 
 
@@ -21,4 +22,5 @@ pub mod init_market;
 pub mod init_wallet;
 pub mod resolve_market;
 pub mod claim_winnings;
+pub mod authorize_user;
 
