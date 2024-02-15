@@ -13,11 +13,12 @@ declare_id!("CPtwPtwjQhPbfZYsHiWskky7gRtBcRzFsh4HvsQ5tmXe");
 pub mod tally_clob {
     use crate::errors::TallyClobErrors;
 
-    use self::utils::{is_owner, is_wallet_manager};
+    use self::utils::{is_clob_manager, is_owner, is_wallet_manager};
 
     use super::*;
 
-    pub fn authorize_user(ctx: Context<AuthorizeUser>, 
+    pub fn authorize_user(
+        ctx: Context<AuthorizeUser>, 
         authorized: bool,
         user_key: Pubkey
     ) -> Result<()> {
@@ -51,8 +52,7 @@ pub mod tally_clob {
 
     pub fn add_to_balance(
         ctx: Context<AddToBalance>,
-        amount: f64,
-        user_key: Pubkey
+        amount: f64
     ) -> Result<()> {
         is_wallet_manager(ctx.accounts.signer.key())?;
 
@@ -61,8 +61,7 @@ pub mod tally_clob {
 
     pub fn withdraw_from_balance(
         ctx: Context<WithdrawFromBalance>,
-        amount: f64,
-        user_key: Pubkey
+        amount: f64
     ) -> Result<()> {
         is_wallet_manager(ctx.accounts.signer.key())?;
 
@@ -74,6 +73,7 @@ pub mod tally_clob {
         orders: Vec<Order>,
         order_data: OrderData
     ) -> Result<()> {
+        is_wallet_manager(ctx.accounts.signer.key())?;
         instructions::bulk_buy_by_price(ctx, orders)
     }
 
@@ -82,22 +82,23 @@ pub mod tally_clob {
         orders: Vec<Order>,
         order_data: OrderData
     ) -> Result<()> {
+        is_clob_manager(ctx.accounts.signer.key())?;
         instructions::bulk_buy_by_shares(ctx, orders)
     }
 
     pub fn bulk_sell_by_price(
         ctx: Context<BulkSellByPrice>,
-        orders: Vec<Order>,
-        order_data: OrderData
+        orders: Vec<Order>
     ) -> Result<()> {
+        is_clob_manager(ctx.accounts.signer.key())?;
         instructions::bulk_sell_by_price(ctx, orders)
     }
 
     pub fn bulk_sell_by_shares(
         ctx: Context<BulkSellByShares>,
-        orders: Vec<Order>,
-        order_data: OrderData
+        orders: Vec<Order>
     ) -> Result<()> {
+        is_clob_manager(ctx.accounts.signer.key())?;
         instructions::bulk_sell_by_shares(ctx, orders)
     }
 
@@ -105,7 +106,6 @@ pub mod tally_clob {
         ctx: Context<ResolveMarket>,
         sub_market_id: u64,
         choice_id: u64,
-        market_key: Pubkey
     ) -> Result<()> {
         require!(ctx.accounts.authorized_user.authorized, TallyClobErrors::NotAuthorized);
 
@@ -115,8 +115,7 @@ pub mod tally_clob {
     pub fn claim_winnings(
         ctx: Context<ClaimWinnings>,
         sub_market_id: u64,
-        choice_id: u64,
-        order_data: OrderData
+        choice_id: u64
     ) -> Result<()> {
 
         instructions::claim_winnings(ctx, sub_market_id, choice_id)

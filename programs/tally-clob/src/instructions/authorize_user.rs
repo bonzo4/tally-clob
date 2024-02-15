@@ -14,7 +14,7 @@ pub fn authorize_user(
 }
 
 #[derive(Accounts)]
-#[instruction(user_key: Pubkey)]
+#[instruction(authority: bool,user_key: Pubkey)]
 pub struct AuthorizeUser<'info> {
     #[account(mut)]
     pub signer: Signer<'info>,

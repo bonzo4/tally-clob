@@ -3,7 +3,7 @@ import { Program } from "@coral-xyz/anchor";
 import { TallyClob } from "../target/types/tally_clob";
 import {  PublicKey } from "@solana/web3.js";
 import { expect } from "chai";
-import { getAuthorizedUserKeypair, getOwnerKeypair } from "./utils/getWallets";
+import { getAuthorizedUserKeypair, getOwnerKeypair } from "./utils/wallets";
 
 describe("authorize user instruction", () => {
 
@@ -24,7 +24,8 @@ describe("authorize user instruction", () => {
 
   it ("unauthorized authorize fails", async () => {
     try {
-        await program.methods.authorizeUser(true, userKeypair.publicKey)
+        await program.methods
+        .authorizeUser(true, userKeypair.publicKey)
         .signers([userKeypair])
         .accounts({signer: userKeypair.publicKey, authorizedUser: authorizedUserPda })
         .rpc()
@@ -57,6 +58,17 @@ describe("authorize user instruction", () => {
         const user = await program.account.authorizedUser.fetch(authorizedUserPda);
 
         expect(user.authorized).to.equal(false);
+  })
+
+  it ("authorizes a user again", async () => {
+    await program.methods.authorizeUser(true, userKeypair.publicKey)
+        .signers([owner])
+        .accounts({signer: owner.publicKey, authorizedUser: authorizedUserPda })
+        .rpc()
+
+        const user = await program.account.authorizedUser.fetch(authorizedUserPda);
+
+        expect(user.authorized).to.equal(true);
   })
 
 });

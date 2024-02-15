@@ -13,15 +13,10 @@ pub fn add_to_balance(ctx: Context<AddToBalance>, amount: f64) -> Result<()> {
 }
 
 #[derive(Accounts)]
-#[instruction(user_key: Pubkey)]
 pub struct AddToBalance<'info> {
     #[account(mut)]
     pub signer: Signer<'info>,
-    #[account(
-        mut,
-        seeds = [b"users".as_ref(), user_key.key().as_ref()], 
-        bump = user.bump
-    )]
+    #[account(mut)]
     pub user: Account<'info, User>,
     pub system_program: Program<'info, System>,
 }

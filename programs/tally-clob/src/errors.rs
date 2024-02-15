@@ -40,7 +40,7 @@ pub enum TallyClobErrors {
     AlreadyClaimed,
     #[msg("Market already resolved")]
     MarketAlreadyResolved,
-    #[msg("Estimated shares is too far off from acutal calculation, cancelling order")]
+    #[msg("Estimated shares is to far off from acutal shares, cancelling order")]
     SharesEstimationOff,
     #[msg("Estimated price is to far off from acutal price, cancelling order")]
     PriceEstimationOff,

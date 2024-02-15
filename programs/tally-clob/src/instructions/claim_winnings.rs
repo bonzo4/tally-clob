@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 
-use crate::{errors::TallyClobErrors, Market, MarketPortfolio, OrderData, User};
+use crate::{errors::TallyClobErrors, Market, MarketPortfolio, User};
 
 pub fn claim_winnings(
     ctx: Context<ClaimWinnings>,
@@ -42,27 +42,14 @@ pub fn claim_winnings(
 
 
 #[derive(Accounts)]
-#[instruction(order_data: OrderData)]
 pub struct ClaimWinnings<'info> {
     #[account(mut)]
     pub signer: Signer<'info>,
-    #[account(
-        mut, 
-        seeds = [b"users",  order_data.user_key.key().as_ref()], 
-        bump = user.bump
-    )]
+    #[account(mut)]
     pub user: Account<'info, User>,
-    #[account(
-        mut,
-        seeds = [b"markets".as_ref(), order_data.market_key.key().as_ref()],
-        bump = market.bump
-    )]
+    #[account(mut)]
     pub market: Account<'info, Market>,
-    #[account(
-        mut,
-        seeds = [order_data.user_key.key().as_ref(), order_data.market_key.key().as_ref()],
-        bump
-    )]
+    #[account(mut)]
     pub market_portfolio: Account<'info, MarketPortfolio>,
     pub system_program: Program<'info, System>
 }

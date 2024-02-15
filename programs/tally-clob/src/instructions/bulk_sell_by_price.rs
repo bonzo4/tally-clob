@@ -2,7 +2,7 @@ use std::borrow::BorrowMut;
 
 use anchor_lang::prelude::*;
 
-use crate::{errors::TallyClobErrors, Market, MarketPortfolio, Order, OrderData, User};
+use crate::{errors::TallyClobErrors, Market, MarketPortfolio, Order, User};
 
 pub fn bulk_sell_by_price(
     ctx: Context<BulkSellByPrice>,
@@ -55,27 +55,14 @@ pub fn bulk_sell_by_price(
 }
 
 #[derive(Accounts)]
-#[instruction(order_data: OrderData)]
 pub struct BulkSellByPrice<'info> {
     #[account(mut)]
     pub signer: Signer<'info>,
-    #[account(
-        mut, 
-        seeds = [b"users",  order_data.user_key.key().as_ref()], 
-        bump = user.bump
-    )]
+    #[account(mut)]
     pub user: Account<'info, User>,
-    #[account(
-        mut,
-        seeds = [b"markets".as_ref(), order_data.market_key.key().as_ref()],
-        bump = market.bump
-    )]
+    #[account(mut)]
     pub market: Account<'info, Market>,
-    #[account(
-        mut,
-        seeds = [order_data.user_key.key().as_ref(), order_data.market_key.key().as_ref()],
-        bump
-    )]
+    #[account(mut)]
     pub market_portfolio: Account<'info, MarketPortfolio>,
     pub system_program: Program<'info, System>
 }

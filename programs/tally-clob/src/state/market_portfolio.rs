@@ -12,7 +12,6 @@ impl MarketPortfolio {
 
     pub const SIZE: usize = DISCRIMINATOR_SIZE
     + U8_SIZE
-    + U8_SIZE
     + vec_size(SubMarketPortfolio::SIZE, Market::MARKET_MAX_LENGTH);
 
     pub fn check_portfolio_shares(&mut self, orders: &Vec<Order>) -> Result<&Self> {

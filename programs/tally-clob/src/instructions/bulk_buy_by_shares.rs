@@ -52,21 +52,13 @@ pub fn bulk_buy_by_shares(
 
 
 #[derive(Accounts)]
-#[instruction(order_data: OrderData)]
+#[instruction(orders: Vec<Order>, order_data: OrderData)]
 pub struct BulkBuyByShares<'info> {
     #[account(mut)]
     pub signer: Signer<'info>,
-    #[account(
-        mut, 
-        seeds = [b"users",  order_data.user_key.key().as_ref()], 
-        bump = user.bump
-    )]
+    #[account(mut)]
     pub user: Account<'info, User>,
-    #[account(
-        mut,
-        seeds = [b"markets".as_ref(), order_data.market_key.key().as_ref()],
-        bump = market.bump
-    )]
+    #[account(mut)]
     pub market: Account<'info, Market>,
     #[account(
         init_if_needed,

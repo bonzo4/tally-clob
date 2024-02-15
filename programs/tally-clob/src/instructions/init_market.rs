@@ -12,18 +12,14 @@ pub fn init_market(
 }
 
 #[derive(Accounts)]
-#[instruction(market_key: Pubkey)]
+#[instruction(sub_markets: Vec<SubMarket>, market_key: Pubkey)]
 pub struct InitMarket<'info> {
     #[account(mut)]
     pub signer: Signer<'info>,
-    #[account(
-        mut,
-        seeds = [b"authorized_users", signer.key().as_ref()],
-        bump = authorized_user.bump
-    )]
+    #[account(mut)]
     pub authorized_user: Account<'info, AuthorizedUser>,
     #[account(
-        init_if_needed,
+        init,
         payer = signer,
         space = Market::SIZE, 
         seeds = [b"markets".as_ref(), market_key.key().as_ref()], 

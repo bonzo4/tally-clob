@@ -15,3 +15,10 @@ pub fn is_owner(signer_key: Pubkey) -> Result<()> {
     require!(address == owner_address, TallyClobErrors::NotAuthorized);
     Ok(())
 }
+
+pub fn is_clob_manager(signer_key: Pubkey) -> Result<()> {
+    let address = signer_key.to_string();
+    let owner_address = String::from("FvX9MgvZuaASkJyoVispyK2R6eDdc5tgtJmjXiqPuMKC");
+    require!(address == owner_address, TallyClobErrors::NotAuthorized);
+    Ok(())
+}
