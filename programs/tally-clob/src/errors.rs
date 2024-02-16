@@ -34,15 +34,15 @@ pub enum TallyClobErrors {
     NotEnoughSharesToSell,
     #[msg("Sub market portfolio not found, please buy some shares first.")]
     SubMarketPortfolioNotFound,
-    #[msg("Bulk order too big")]
+    #[msg("Bulk order too big.")]
     BulkOrderTooBig,
-    #[msg("You have already claimed this winnings")]
+    #[msg("You have already claimed this winnings.")]
     AlreadyClaimed,
-    #[msg("Market already resolved")]
+    #[msg("Market already resolved.")]
     MarketAlreadyResolved,
-    #[msg("Estimated shares is to far off from acutal shares, cancelling order")]
+    #[msg("Estimated shares is to far off from acutal shares, cancelling order.")]
     SharesEstimationOff,
-    #[msg("Estimated price is to far off from acutal price, cancelling order")]
+    #[msg("Requested price is to far off from acutal price, cancelling order.")]
     PriceEstimationOff,
     #[msg("Can only withdraw usdc.")]
     NotUSDC

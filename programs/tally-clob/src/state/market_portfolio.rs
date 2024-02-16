@@ -22,7 +22,7 @@ impl MarketPortfolio {
                         &order.choice_id
                     ).unwrap();
 
-            require!(portfolio_shares >= order.requested_amount as u64, TallyClobErrors::NotEnoughSharesToSell);
+            require!(portfolio_shares >= order.amount as u64, TallyClobErrors::NotEnoughSharesToSell);
         }
 
         Ok(self)
@@ -34,7 +34,7 @@ impl MarketPortfolio {
                 self.add_to_portfolio(
                     &order.sub_market_id, 
                     &order.choice_id, 
-                    order.requested_amount as u64
+                    order.amount as u64
                 ).unwrap();
             });
 
@@ -48,7 +48,7 @@ impl MarketPortfolio {
                     .sell_from_portfolio(
                         &order.sub_market_id, 
                         &order.choice_id, 
-                        order.requested_amount as u64
+                        order.amount as u64
                     ).unwrap();
             });
 

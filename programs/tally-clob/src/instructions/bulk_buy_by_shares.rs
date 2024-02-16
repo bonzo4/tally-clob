@@ -2,7 +2,7 @@ use std::borrow::BorrowMut;
 
 use anchor_lang::prelude::*;
 
-use crate::{errors::TallyClobErrors, Market, MarketPortfolio, Order, OrderData, User};
+use crate::{errors::TallyClobErrors, Market, MarketPortfolio, MarketStatus, Order, User};
 
 pub fn bulk_buy_by_shares(
     ctx: Context<BulkBuyByShares>,
@@ -14,11 +14,23 @@ pub fn bulk_buy_by_shares(
 
     // check orders
     // 1. check if there is less than 10 orders,
-    require!(orders.len() <= 10, TallyClobErrors::BulkOrderTooBig);
+    require!(orders.len() <= ctx.accounts.market.sub_markets.len(), TallyClobErrors::BulkOrderTooBig);
     // 2. check if all the requested submarkets are in a buying period
     let market_periods = ctx.accounts.market
         .get_buying_periods(orders)?;
-    
+
+    let mut is_buying_periods = market_periods.iter()
+        .map(|market_period| [MarketStatus::FairLaunch, MarketStatus::Trading].contains(market_period));
+
+    require!(is_buying_periods.all(|is_buying_period| !!is_buying_period), TallyClobErrors::NotBuyingPeriod);
+    // 3. check if the requested prices are at least within
+    let acutal_prices = ctx.accounts.market.get_order_prices(orders)?;
+    let prices_in_range = orders.iter().enumerate().map(|(index, order)| {
+        let top = acutal_prices[index] * 1.05;
+        let bottom = acutal_prices[index] * 0.95;
+        bottom < order.requested_price && order.requested_price < top
+    }).collect::<Vec<bool>>();
+    require!(prices_in_range.iter().all(|in_range| !!in_range), TallyClobErrors::PriceEstimationOff);
     
     // Prep order 
     // 1. get total price based on market_status
@@ -27,15 +39,6 @@ pub fn bulk_buy_by_shares(
     let total_price = order_prices.iter().sum();
     // 2. check that the total price is less than the user balance
     require!(ctx.accounts.user.balance >= total_price, TallyClobErrors::BalanceTooLow);
-    
-    // 3. check if esitamted price is too far off from acutal price
-    let estimated_prices = orders.iter()
-        .map(|order| order.estimated_amount)
-        .collect::<Vec<f64>>();
-    let total_estimated_price = estimated_prices.iter().sum::<f64>();
-    let bottom = total_price * 0.99; let top = total_price * 1.01; 
-    let within_range = bottom < total_estimated_price && total_estimated_price < top;
-    require!(within_range, TallyClobErrors::PriceEstimationOff);
 
 
     // Make order
@@ -52,7 +55,6 @@ pub fn bulk_buy_by_shares(
 
 
 #[derive(Accounts)]
-#[instruction(orders: Vec<Order>, order_data: OrderData)]
 pub struct BulkBuyByShares<'info> {
     #[account(mut)]
     pub signer: Signer<'info>,
@@ -64,7 +66,7 @@ pub struct BulkBuyByShares<'info> {
         init_if_needed,
         payer = signer,
         space = MarketPortfolio::SIZE,
-        seeds = [order_data.user_key.key().as_ref(), order_data.market_key.key().as_ref()],
+        seeds = [b"market_portfolios".as_ref(), market.key().as_ref(), user.key().as_ref(), ],
         bump
     )]
     pub market_portfolio: Account<'info, MarketPortfolio>,

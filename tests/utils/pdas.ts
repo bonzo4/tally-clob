@@ -45,6 +45,7 @@ export function getMarketPortfolioPDA(
 ): PublicKey {
     const [marketPortfolioPDA, _] = PublicKey.findProgramAddressSync(
         [
+            anchor.utils.bytes.utf8.encode("market_portfolios"),
             marketKey.toBuffer(),
             userKey.toBuffer(),
         ],

@@ -35,7 +35,8 @@ impl SubMarket {
 
     pub fn get_buying_period(&self) -> Result<MarketStatus> {
         let now = clock::current_timestamp();
-        require!(now > self.fair_launch_start, TallyClobErrors::MarketIntializing);
+        if now < self.fair_launch_start {return Ok(MarketStatus::Initializing)};
+        // require!(now > self.fair_launch_start, TallyClobErrors::MarketIntializing);
 
         let is_fair_launch = now > self.fair_launch_start 
         && now < self.fair_launch_end ;
@@ -45,7 +46,7 @@ impl SubMarket {
         && now < self.trading_end;
         if is_trading_period {return Ok(MarketStatus::Trading)};
 
-        err!(TallyClobErrors::MarketClosed)
+        Ok(MarketStatus::Closed)
     }
 
     pub fn check_selling_period(&self) -> Result<MarketStatus> {
@@ -129,6 +130,15 @@ impl SubMarket {
         Ok(self)
     }
 
+    pub fn add_to_choice_shares(&mut self, choice_id: &u64, amount: u64) -> Result<&mut Self> {
+        require!(amount > 0, TallyClobErrors::AmountToAddTooLow);
+
+        self.get_choice(choice_id)?
+            .add_to_shares(amount)?;
+
+        Ok(self)
+    }
+
     pub fn withdraw_from_pot(&mut self, amount: f64) -> Result<&mut Self> {
         require!(amount > 0.0, TallyClobErrors::AmountToWithdrawTooLow);
         require!(amount <= self.total_pot, TallyClobErrors::AmountToWithdrawTooGreat);
@@ -139,14 +149,23 @@ impl SubMarket {
         Ok(self)
     }
 
-    pub fn withdraw_from_choice_pot(&mut self, choice_index: usize, amount: f64) -> Result<&mut Self> {
+    pub fn withdraw_from_choice_pot(&mut self, &choice_id: u64, amount: f64) -> Result<&mut Self> {
         require!(amount > 0.0, TallyClobErrors::AmountToWithdrawTooLow);
         require!(amount <= self.total_pot, TallyClobErrors::AmountToWithdrawTooGreat);
 
-        self.choices
-            .get_mut(choice_index)
-            .ok_or(TallyClobErrors::ChoiceNotFound)?
+        self
+            .get_choice(choice_id)?
             .withdraw_from_pot(amount)?;
+
+        Ok(self)
+    }
+
+    pub fn delete_shares_from_choice_pot(&mut self, choice_index: usize, amount: u64) -> Result<&mut Self> {
+        require!(amount > 0, TallyClobErrors::AmountToWithdrawTooLow);
+
+        self
+            .get_choice(choice_id)?
+            .delete_shares(amount)?;
 
         Ok(self)
     }

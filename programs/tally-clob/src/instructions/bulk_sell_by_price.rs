@@ -17,13 +17,21 @@ pub fn bulk_sell_by_price(
     // 2. check if all the requested submarkets are in a selling period
     ctx.accounts.market
         .check_selling_periods(orders)?;
-    // 3. check if there are enough shares to sell
+    // 3. check if the requested prices are at least within
+    let acutal_prices = ctx.accounts.market.get_order_prices(orders)?;
+    let prices_in_range = orders.iter().enumerate().map(|(index, order)| {
+        let top = acutal_prices[index] * 1.05;
+        let bottom = acutal_prices[index] * 0.95;
+        top < order.requested_price && order.requested_price < bottom
+    }).collect::<Vec<bool>>();
+    require!(prices_in_range.iter().all(|in_range| !!in_range), TallyClobErrors::PriceEstimationOff);
+    // 4. check if there are enough shares to sell
     let order_shares = ctx.accounts.market.bulk_sell_shares(orders)?;
     let orders_with_shares = orders.iter()
         .enumerate()
         .map(|(order_index, order)| {
             let mut order_with_share = order.clone();
-            order_with_share.requested_amount = order_shares[order_index] as f64;
+            order_with_share.amount = order_shares[order_index] as f64;
             order_with_share
         }).collect::<Vec<Order>>();
     ctx.accounts.market_portfolio
@@ -32,15 +40,9 @@ pub fn bulk_sell_by_price(
     // Prep order 
     // 1. get total price
     let order_prices = orders.iter()
-        .map(|order| order.requested_amount)
+        .map(|order| order.amount)
         .collect::<Vec<f64>>();
     let total_price = order_prices.iter().sum();
-    // 2. check if esitmated shares is equal to actual shares
-    let esitmated_shares = orders.iter()
-        .map(|order| order.estimated_amount as u64)
-        .collect::<Vec<u64>>();
-    let matching = order_shares.iter().zip(&esitmated_shares).filter(|&(a, b)| a == b).count();
-    require!(matching == order_shares.len(), TallyClobErrors::SharesEstimationOff);
 
     // Make order
     // 1. update market_portfolio
@@ -62,7 +64,11 @@ pub struct BulkSellByPrice<'info> {
     pub user: Account<'info, User>,
     #[account(mut)]
     pub market: Account<'info, Market>,
-    #[account(mut)]
+    #[account(
+        mut,
+        seeds = [b"market_portfolios".as_ref(), market.key().as_ref(), user.key().as_ref(), ],
+        bump = market_portfolio.bump
+    )]
     pub market_portfolio: Account<'info, MarketPortfolio>,
     pub system_program: Program<'info, System>
 }

@@ -17,9 +17,17 @@ pub fn bulk_buy_by_price(
     // 2. check if all the requested submarkets are in a buying period
     let market_periods = ctx.accounts.market
         .get_buying_periods(orders)?;
-    // 3. check if user has enough balance
+    // 3. check if the requested prices are at least within 5%
+    let acutal_prices = ctx.accounts.market.get_order_prices(orders)?;
+    let prices_in_range = orders.iter().enumerate().map(|(index, order)| {
+        let top = acutal_prices[index] * 1.05;
+        let bottom = acutal_prices[index] * 0.95;
+        top < order.requested_price && order.requested_price < bottom
+    }).collect::<Vec<bool>>();
+    require!(prices_in_range.iter().all(|in_range| !!in_range), TallyClobErrors::PriceEstimationOff);
+    // 4. check if user has enough balance
     let order_prices = orders.iter()
-        .map(|order| order.requested_amount)
+        .map(|order| order.amount)
         .collect::<Vec<f64>>();
     let total_price = order_prices.iter()
         .sum();
@@ -32,13 +40,6 @@ pub fn bulk_buy_by_price(
     let order_shares = ctx.accounts.market
         .bulk_buy_shares(orders, market_periods)?;
 
-
-    // 2. check if esitmated shares is equal to actual shares
-    let esitmated_shares = orders.iter()
-        .map(|order| order.estimated_amount as u64)
-        .collect::<Vec<u64>>();
-    let matching = order_shares.iter().zip(&esitmated_shares).filter(|&(a, b)| a == b).count();
-    require!(matching == order_shares.len(), TallyClobErrors::SharesEstimationOff);
     
     // Make order
     // 1. update user balance
@@ -50,7 +51,7 @@ pub fn bulk_buy_by_price(
         .enumerate()
         .map(|(order_index, order)| {
             let mut order_with_share = order.clone();
-            order_with_share.requested_amount = order_shares[order_index] as f64;
+            order_with_share.amount = order_shares[order_index] as f64;
             order_with_share
         }).collect::<Vec<Order>>();
     ctx.accounts.market_portfolio.bulk_add_to_portfolio(&orders_with_shares)?;

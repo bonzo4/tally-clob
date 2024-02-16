@@ -17,7 +17,15 @@ pub fn bulk_sell_by_shares(
     // 2. check if all the requested submarkets are in a selling period
     ctx.accounts.market
         .check_selling_periods(orders)?;
-    // 3. check if there are enough shares to sell
+    // 3. check if the requested prices are at least within
+    let acutal_prices = ctx.accounts.market.get_order_prices(orders)?;
+    let prices_in_range = orders.iter().enumerate().map(|(index, order)| {
+        let top = acutal_prices[index] * 1.05;
+        let bottom = acutal_prices[index] * 0.95;
+        top < order.requested_price && order.requested_price < bottom
+    }).collect::<Vec<bool>>();
+    require!(prices_in_range.iter().all(|in_range| !!in_range), TallyClobErrors::PriceEstimationOff);
+    // 4. check if there are enough shares to sell
     ctx.accounts.market_portfolio
         .check_portfolio_shares(orders)?;
 
@@ -27,14 +35,6 @@ pub fn bulk_sell_by_shares(
         .bulk_sell_price(orders)?;
     let total_price = order_prices.iter().sum();
 
-    // 2. check if esitamted price is too far off from acutal price
-    let estimated_prices = orders.iter()
-        .map(|order| order.estimated_amount)
-        .collect::<Vec<f64>>();
-    let total_estimated_price = estimated_prices.iter().sum::<f64>();
-    let bottom = total_price * 0.99; let top = total_price * 1.01; 
-    let within_range = bottom < total_estimated_price && total_estimated_price < top;
-    require!(within_range, TallyClobErrors::PriceEstimationOff);
 
     // Make order
     // 1. update market_portfolio

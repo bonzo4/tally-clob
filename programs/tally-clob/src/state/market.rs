@@ -12,10 +12,10 @@ pub struct Market {
 
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone, PartialEq)]
 pub struct Order {
-    pub requested_amount: f64,
+    pub amount: f64,
     pub sub_market_id: u64,
     pub choice_id: u64,
-    pub estimated_amount: f64,
+    pub requested_price: f64,
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone, PartialEq)]
@@ -46,6 +46,14 @@ impl Market {
         Ok(market_periods)
     }
 
+    pub fn get_order_prices(&mut self, orders: &Vec<Order>) -> Result<Vec<f64>> {
+        let order_prices = orders.iter()
+            .map(|order| self.get_sub_market(&order.sub_market_id).unwrap().get_choice(&order.choice_id).unwrap().price)
+            .collect::<Vec<f64>>();
+
+        Ok(order_prices)
+    }
+
     pub fn check_selling_periods(&mut self, orders: &Vec<Order>) -> Result<()> {
         orders.iter()
             .map(|order| order.sub_market_id)
@@ -67,10 +75,10 @@ impl Market {
             .enumerate()
             .map(|(order_index, order)| {
                 if market_periods[order_index] == MarketStatus::FairLaunch {
-                    return order.requested_amount * 0.5;
+                    return order.amount * 0.5;
                 } 
                 let sub_market_id = &order.sub_market_id;
-                self.get_sub_market(sub_market_id).unwrap().get_buy_order_price(&order.choice_id, order.requested_amount as u64).unwrap()
+                self.get_sub_market(sub_market_id).unwrap().get_buy_order_price(&order.choice_id, order.amount as u64).unwrap()
                 
             })
             .collect();
@@ -83,7 +91,7 @@ impl Market {
         .map(|order| {
             self.get_sub_market(&order.sub_market_id)
             .unwrap()
-            .get_sell_order_price(&order.choice_id, order.requested_amount as u64)
+            .get_sell_order_price(&order.choice_id, order.amount as u64)
             .unwrap()
         }).collect();
         
@@ -95,12 +103,12 @@ impl Market {
             .enumerate()
             .map(|(order_index, order)| {
                 
-                if market_periods[order_index] == MarketStatus::FairLaunch {return order.requested_amount as u64 * 4}
+                if market_periods[order_index] == MarketStatus::FairLaunch {return order.amount as u64 * 4}
                 else {
                     return self
                     .get_sub_market(&order.sub_market_id)
                     .unwrap()
-                    .get_buy_order_shares(&order.choice_id, order.requested_amount)
+                    .get_buy_order_shares(&order.choice_id, order.amount)
                     .unwrap();
                 }
             }).collect();
@@ -114,7 +122,7 @@ impl Market {
                 self
                     .get_sub_market(&order.sub_market_id)
                     .unwrap()
-                    .get_sell_order_shares(&order.choice_id, order.requested_amount)
+                    .get_sell_order_shares(&order.choice_id, order.amount)
                     .unwrap()
             }).collect();
 

@@ -25,6 +25,7 @@ pub mod tally_clob {
         is_owner(ctx.accounts.signer.key())?;
 
         instructions::authorize_user(ctx, authorized)
+
     }
 
     pub fn init_market(
@@ -79,8 +80,7 @@ pub mod tally_clob {
 
     pub fn bulk_buy_by_shares(
         ctx: Context<BulkBuyByShares>,
-        orders: Vec<Order>,
-        order_data: OrderData
+        orders: Vec<Order>
     ) -> Result<()> {
         is_clob_manager(ctx.accounts.signer.key())?;
         instructions::bulk_buy_by_shares(ctx, orders)

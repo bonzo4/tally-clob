@@ -41,8 +41,8 @@ describe("fair launch", () => {
   const userPDA = getUserPDA(userKeypair.publicKey, program);
 
   const marketPortfolioPDA = getMarketPortfolioPDA(
-    marketKeypair.publicKey,
-    userKeypair.publicKey,
+    marketPDA,
+    userPDA,
     program
   );
 
@@ -69,10 +69,10 @@ describe("fair launch", () => {
           price: 0.5,
         },
       ],
-      fairLaunchStart: new anchor.BN(now.valueOf() - 1000 * 60 * 5),
-      fairLaunchEnd: new anchor.BN(now.valueOf() + 1000 * 60 * 5),
-      tradingStart: new anchor.BN(now.valueOf() + 1000 * 60 * 60),
-      tradingEnd: new anchor.BN(now.valueOf() + 1000 * 60 * 60),
+      fairLaunchStart: new anchor.BN((now.valueOf() / 1000) - 60 * 60),
+      fairLaunchEnd: new anchor.BN((now.valueOf() / 1000) + 60 * 60),
+      tradingStart: new anchor.BN((now.valueOf() / 1000) + 60 * 60),
+      tradingEnd: new anchor.BN((now.valueOf() / 1000) + 60 * 60 * 2),
       resolved: false,
     },
   ];
@@ -86,7 +86,7 @@ describe("fair launch", () => {
         market: marketPDA,
         authorizedUser: authorizedUserPda,
       })
-      .rpc();
+      .rpc().catch(err => console.log(err));
 
     const user = await program.account.user.fetch(userPDA);
 
@@ -119,10 +119,12 @@ describe("fair launch", () => {
 
   it("sucessfully created the market and reset user balance", async () => {
     const market = await program.account.market.fetch(marketPDA);
+    const user = await program.account.user.fetch(userPDA);
 
     const subMarket = market.subMarkets[0];
 
     expect(subMarket.totalPot).to.equal(0);
+    expect(user.balance).to.equal(10);
   })
 
   it("fails to buy by shares due to not clob manager", async () => {
@@ -130,12 +132,12 @@ describe("fair launch", () => {
       await program.methods
         .bulkBuyByShares([
           {
-            requestedAmount: 1,
+            amount: 1,
             subMarketId: new anchor.BN(2),
             choiceId: new anchor.BN(1),
-            estimatedAmount: 1,
+            requestedPrice: 0.5,
           }
-        ], {marketKey: marketKeypair.publicKey, userKey: userKeypair.publicKey})
+        ])
         .signers([userKeypair])
         .accounts({
           signer: userKeypair.publicKey,
@@ -145,10 +147,42 @@ describe("fair launch", () => {
         })
         .rpc();
     } catch (err) {
-      console.log(err)
       const error = err as anchor.AnchorError;
       let expectedMsg =
         "You do not have the authorization to use this instruction.";
+      expect(error.error.errorMessage).to.equal(expectedMsg);
+    }
+  });
+
+  it("fails to buy by shares due to too many orders", async () => {
+    try {
+      await program.methods
+        .bulkBuyByShares([
+          {
+            amount: 1,
+            subMarketId: new anchor.BN(2),
+            choiceId: new anchor.BN(1),
+            requestedPrice: 0.5,
+          },
+          {
+            amount: 1,
+            subMarketId: new anchor.BN(2),
+            choiceId: new anchor.BN(2),
+            requestedPrice: 0.5,
+          }
+        ])
+        .signers([clobManger])
+        .accounts({
+          signer: clobManger.publicKey,
+          user: userPDA,
+          market: marketPDA,
+          marketPortfolio: marketPortfolioPDA,
+        })
+        .rpc();
+    } catch (err) {
+      const error = err as anchor.AnchorError;
+      let expectedMsg =
+        "Bulk order too big.";
       expect(error.error.errorMessage).to.equal(expectedMsg);
     }
   });
@@ -158,18 +192,18 @@ describe("fair launch", () => {
       await program.methods
         .bulkBuyByShares([
           {
-            requestedAmount: 1000,
+            amount: 1000,
             subMarketId: new anchor.BN(2),
             choiceId: new anchor.BN(1),
-            estimatedAmount: 1000,
+            requestedPrice: 0.5,
           },
-        ], {marketKey: marketKeypair.publicKey, userKey: userKeypair.publicKey})
+        ])
         .signers([clobManger])
         .accounts({
           signer: clobManger.publicKey,
           user: userPDA,
           market: marketPDA,
-          // marketPortfolio: marketPortfolioPDA,
+          marketPortfolio: marketPortfolioPDA,
         })
         .rpc();
     } catch (err) {
@@ -185,12 +219,12 @@ describe("fair launch", () => {
       await program.methods
         .bulkBuyByShares([
           {
-            requestedAmount: 1,
+            amount: 1,
             subMarketId: new anchor.BN(2),
             choiceId: new anchor.BN(1),
-            estimatedAmount: 2,
+            requestedPrice: 0.6,
           },
-        ], {marketKey: marketKeypair.publicKey, userKey: userKeypair.publicKey})
+        ])
         .signers([clobManger])
         .accounts({
           signer: clobManger.publicKey,
@@ -202,9 +236,96 @@ describe("fair launch", () => {
     } catch (err) {
       const error = err as anchor.AnchorError;
       let expectedMsg =
-        "Estimated shares is to far off from acutal shares, cancelling order";
+        "Requested price is to far off from acutal price, cancelling order.";
       expect(error.error.errorMessage).to.equal(expectedMsg);
     }
+  });
+
+  it("fails to sell by shares due not having any shares", async () => {
+    try {
+      await program.methods
+        .bulkSellByShares([
+          {
+            amount: 1,
+            subMarketId: new anchor.BN(2),
+            choiceId: new anchor.BN(1),
+            requestedPrice: 0.5,
+          },
+        ])
+        .signers([clobManger])
+        .accounts({
+          signer: clobManger.publicKey,
+          user: userPDA,
+          market: marketPDA,
+          marketPortfolio: marketPortfolioPDA,
+        })
+        .rpc();
+    } catch (err) {
+      const error = err as anchor.AnchorError;
+      let expectedMsg =
+        "The program expected this account to be already initialized";
+      expect(error.error.errorMessage).to.equal(expectedMsg);
+    }
+  });
+
+  it("fails to sell by shares due not having any shares", async () => {
+    try {
+      await program.methods
+        .bulkSellByPrice([
+          {
+            amount: 1,
+            subMarketId: new anchor.BN(2),
+            choiceId: new anchor.BN(1),
+            requestedPrice: 0.5,
+          },
+        ])
+        .signers([clobManger])
+        .accounts({
+          signer: clobManger.publicKey,
+          user: userPDA,
+          market: marketPDA,
+          marketPortfolio: marketPortfolioPDA,
+        })
+        .rpc();
+    } catch (err) {
+      const error = err as anchor.AnchorError;
+      let expectedMsg =
+        "The program expected this account to be already initialized";
+      expect(error.error.errorMessage).to.equal(expectedMsg);
+    }
+  });
+
+  it("buy bulk by shares", async () => {
+    await program.methods
+      .bulkBuyByShares([
+        {
+          amount: 5,
+          subMarketId: new anchor.BN(2),
+          choiceId: new anchor.BN(1),
+          requestedPrice: 0.5,
+        },
+      ])
+      .signers([clobManger])
+      .accounts({
+        signer: clobManger.publicKey,
+        user: userPDA,
+        market: marketPDA,
+        marketPortfolio: marketPortfolioPDA,
+      })
+      .rpc();
+
+    const user = await program.account.user.fetch(userPDA);
+    console.log(user)
+    const market = await program.account.market.fetch(marketPDA);
+    console.log(market.subMarkets[0])
+    const marketPortfolio = await program.account.marketPortfolio.fetch(marketPortfolioPDA);
+    console.log(marketPortfolio.subMarketPortfolio[0])
+      
+    expect(user.balance).to.equal(7.5)
+    expect(market.subMarkets[0].totalPot).to.equal(2.5)
+    expect(market.subMarkets[0].choices[0].totalPot).to.equal(2.5)
+    expect(market.subMarkets[0].choices[0].shares).to.equal(5)
+    expect(marketPortfolio.subMarketPortfolio[0].choicePortfolio[0].shares).to.equal(5)
   });
 
   it("fails to sell by shares due to fair launch", async () => {
@@ -212,10 +333,10 @@ describe("fair launch", () => {
       await program.methods
         .bulkSellByShares([
           {
-            requestedAmount: 1,
+            amount: 1,
             subMarketId: new anchor.BN(2),
             choiceId: new anchor.BN(1),
-            estimatedAmount: 2,
+            requestedPrice: 0.5,
           },
         ])
         .signers([clobManger])
@@ -239,10 +360,10 @@ describe("fair launch", () => {
       await program.methods
         .bulkSellByPrice([
           {
-            requestedAmount: 1,
+            amount: 1,
             subMarketId: new anchor.BN(2),
             choiceId: new anchor.BN(1),
-            estimatedAmount: 2,
+            requestedPrice: 0.5,
           },
         ])
         .signers([clobManger])
@@ -259,35 +380,5 @@ describe("fair launch", () => {
         "Cannot sell at this time please check in when trading starts.";
       expect(error.error.errorMessage).to.equal(expectedMsg);
     }
-  });
-
-  it("buy by shares during fair launch", async () => {
-    await program.methods
-      .bulkBuyByShares([
-        {
-          requestedAmount: 5,
-          subMarketId: new anchor.BN(2),
-          choiceId: new anchor.BN(1),
-          estimatedAmount: 5,
-        },
-      ], {marketKey: marketKeypair.publicKey, userKey: userKeypair.publicKey})
-      .signers([clobManger])
-      .accounts({
-        signer: clobManger.publicKey,
-        user: userPDA,
-        market: marketPDA,
-        marketPortfolio: marketPortfolioPDA,
-      })
-      .rpc();
-
-    const user = await await program.account.user.fetch(userPDA);
-    const market = await program.account.market.fetch(marketPDA);
-    const marketPortfolio = await program.account.marketPortfolio.fetch(marketPortfolioPDA);
-      
-    expect(user.balance).to.equal(10 - (5 * 0.5))
-    expect(market.subMarkets[0].totalPot).to.equal((5 * 0.5))
-    expect(market.subMarkets[0].choices[0].totalPot).to.equal((5 * 0.5))
-    expect(market.subMarkets[0].choices[0].shares).to.equal((5))
-    expect(marketPortfolio.subMarketPortfolio[0].choicePortfolio[0].shares).to.equal((5))
   });
 });
