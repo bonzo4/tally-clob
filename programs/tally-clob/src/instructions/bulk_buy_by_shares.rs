@@ -2,7 +2,7 @@ use std::borrow::BorrowMut;
 
 use anchor_lang::prelude::*;
 
-use crate::{errors::TallyClobErrors, Market, MarketPortfolio, MarketStatus, Order, User};
+use crate::{errors::TallyClobErrors, utils::has_unique_elements, Market, MarketPortfolio, MarketStatus, Order, User};
 
 pub fn bulk_buy_by_shares(
     ctx: Context<BulkBuyByShares>,
@@ -15,17 +15,25 @@ pub fn bulk_buy_by_shares(
     // check orders
     // 1. check if there is less than 10 orders,
     require!(orders.len() <= ctx.accounts.market.sub_markets.len(), TallyClobErrors::BulkOrderTooBig);
-    // 2. check if all the requested submarkets are in a buying period
+
+    // 2. check if there are any duplicate choice_ids
+    let sub_market_ids = orders.iter().map(|order| order.sub_market_id).collect::<Vec<u64>>();
+    require!(has_unique_elements(sub_market_ids), TallyClobErrors::SameSubMarket);
+
+    // 3. check if all the requested submarkets are in a buying period
     let market_periods = ctx.accounts.market
         .get_buying_periods(orders)?;
-
     let mut is_buying_periods = market_periods.iter()
         .map(|market_period| [MarketStatus::FairLaunch, MarketStatus::Trading].contains(market_period));
-
     require!(is_buying_periods.all(|is_buying_period| !!is_buying_period), TallyClobErrors::NotBuyingPeriod);
-    // 3. check if the requested prices are at least within
+
+    // 4. check if the requested prices are at least within 5%
     let acutal_prices = ctx.accounts.market.get_order_prices(orders)?;
     let prices_in_range = orders.iter().enumerate().map(|(index, order)| {
+        if market_periods[index] == MarketStatus::FairLaunch 
+            && order.requested_price == ctx.accounts.market.get_sub_market_default_price(&order.sub_market_id).unwrap() {
+            return true;
+        }
         let top = acutal_prices[index] * 1.05;
         let bottom = acutal_prices[index] * 0.95;
         bottom < order.requested_price && order.requested_price < top

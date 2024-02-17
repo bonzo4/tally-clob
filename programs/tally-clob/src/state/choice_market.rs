@@ -95,7 +95,7 @@ impl ChoiceMarket {
    
 
     pub fn reprice(&mut self, market_pot: f64) -> Result<&mut Self> {
-        self.total_pot = if market_pot == 0.0 {self.total_pot / market_pot} else {0.0};
+        self.price = if market_pot != 0.0 {self.total_pot / market_pot} else {1.0};
         
         Ok(self)
     }
@@ -111,6 +111,16 @@ impl ChoiceMarket {
         Ok(self)
     }
 
+    pub fn add_to_shares(&mut self, amount: u64) -> Result<&mut Self> {
+        require!(amount > 0, TallyClobErrors::AmountToAddTooLow);
+
+        self
+            .shares
+            .add_assign(amount);
+
+        Ok(self)
+    }
+
     pub fn withdraw_from_pot(&mut self, amount: f64) -> Result<&mut Self>  {
         require!(amount > 0.0, TallyClobErrors::AmountToWithdrawTooLow);
         require!(amount <= self.total_pot, TallyClobErrors::AmountToWithdrawTooGreat);
@@ -118,6 +128,17 @@ impl ChoiceMarket {
         self
             .total_pot
             .sub_assign(amount);
+        Ok(self)
+    }
+
+    pub fn delete_shares(&mut self, amount: u64) -> Result<&mut Self> {
+        require!(amount > 0, TallyClobErrors::AmountToWithdrawTooLow);
+        require!(amount <= self.shares, TallyClobErrors::AmountToWithdrawTooGreat);
+
+        self
+            .shares
+            .sub_assign(amount);
+
         Ok(self)
     }
 }

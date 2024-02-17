@@ -19,12 +19,11 @@ impl ChoicePortfolio {
     + BOOL_SIZE;
 
     pub fn new(
-        choice_id: u64, 
-        shares: u64
+        choice_id: u64
     ) -> ChoicePortfolio {
         ChoicePortfolio {
             choice_id,
-            shares,
+            shares: 0,
             claimed: false
         }
     }

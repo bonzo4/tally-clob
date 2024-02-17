@@ -93,7 +93,11 @@ impl MarketPortfolio {
     pub fn get_sub_market_portfolio(&mut self, sub_market_id: &u64) -> Result<&mut SubMarketPortfolio> {
         match self.sub_market_portfolio.binary_search_by_key(sub_market_id, |sub_market| sub_market.sub_market_id) {
             Ok(index) => Ok(&mut self.sub_market_portfolio[index]),
-            Err(_) => err!(TallyClobErrors::SubMarketPortfolioNotFound),
+            Err(_) =>  {
+             let new_sub_portfolio = &mut SubMarketPortfolio::new(*sub_market_id);
+                self.sub_market_portfolio.push(new_sub_portfolio.clone()); 
+                Ok(self.sub_market_portfolio.last_mut().unwrap())
+            }
         }
     }
     

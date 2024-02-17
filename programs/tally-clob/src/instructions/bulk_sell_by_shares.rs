@@ -2,7 +2,7 @@ use std::borrow::BorrowMut;
 
 use anchor_lang::prelude::*;
 
-use crate::{errors::TallyClobErrors, Market, MarketPortfolio, Order, User};
+use crate::{errors::TallyClobErrors, utils::has_unique_elements, Market, MarketPortfolio, MarketStatus, Order, User};
 
 pub fn bulk_sell_by_shares(
     ctx: Context<BulkSellByShares>,
@@ -12,11 +12,20 @@ pub fn bulk_sell_by_shares(
     let orders: &mut Vec<Order> = orders.borrow_mut();
 
     // check orders
-    // 1. check if there is less than 10 orders,
-    require!(orders.len() <= 10, TallyClobErrors::BulkOrderTooBig);
-    // 2. check if all the requested submarkets are in a selling period
-    ctx.accounts.market
-        .check_selling_periods(orders)?;
+   // 1. check if there is less than 10 orders,
+   require!(orders.len() <= ctx.accounts.market.sub_markets.len(), TallyClobErrors::BulkOrderTooBig);
+
+   // 2. check if there are any duplicate choice_ids
+   let sub_market_ids = orders.iter().map(|order| order.sub_market_id).collect::<Vec<u64>>();
+   require!(has_unique_elements(sub_market_ids), TallyClobErrors::SameSubMarket);
+   
+   // 3. check if all the requested submarkets are in a buying period
+   let market_periods = ctx.accounts.market
+       .get_buying_periods(orders)?;
+   let mut is_selling_periods = market_periods.iter()
+       .map(|market_period| [MarketStatus::Trading].contains(market_period));
+   require!(is_selling_periods.all(|is_buying_period| !!is_buying_period), TallyClobErrors::NotSellingPeriod);
+   
     // 3. check if the requested prices are at least within
     let acutal_prices = ctx.accounts.market.get_order_prices(orders)?;
     let prices_in_range = orders.iter().enumerate().map(|(index, order)| {

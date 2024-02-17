@@ -36,6 +36,8 @@ pub enum TallyClobErrors {
     SubMarketPortfolioNotFound,
     #[msg("Bulk order too big.")]
     BulkOrderTooBig,
+    #[msg("Order cannot contain multiple multiples of the same sub market.")]
+    SameSubMarket,
     #[msg("You have already claimed this winnings.")]
     AlreadyClaimed,
     #[msg("Market already resolved.")]

@@ -7,7 +7,6 @@ import {
   getAssociatedTokenAccount,
   getAuthorizedUserKeypair,
   getClobManagerKeypair,
-  getOwnerKeypair,
   getUserKeypair,
   getWalletManagerKeypair,
   getWalletManagerTokenAccount,
@@ -315,17 +314,49 @@ describe("fair launch", () => {
       .rpc();
 
     const user = await program.account.user.fetch(userPDA);
-    console.log(user)
     const market = await program.account.market.fetch(marketPDA);
-    console.log(market.subMarkets[0])
     const marketPortfolio = await program.account.marketPortfolio.fetch(marketPortfolioPDA);
-    console.log(marketPortfolio.subMarketPortfolio[0])
-      
+
     expect(user.balance).to.equal(7.5)
     expect(market.subMarkets[0].totalPot).to.equal(2.5)
     expect(market.subMarkets[0].choices[0].totalPot).to.equal(2.5)
-    expect(market.subMarkets[0].choices[0].shares).to.equal(5)
-    expect(marketPortfolio.subMarketPortfolio[0].choicePortfolio[0].shares).to.equal(5)
+    expect(market.subMarkets[0].choices[0].shares.toNumber()).to.equal(5)
+    expect(market.subMarkets[0].choices[0].price).to.equal(1)
+    expect(marketPortfolio.subMarketPortfolio[0].choicePortfolio[0].shares.toNumber()).to.equal(5)
+  });
+
+  it("buy bulk by price", async () => {
+    await program.methods
+      .bulkBuyByPrice([
+        {
+          amount: 2.5,
+          subMarketId: new anchor.BN(2),
+          choiceId: new anchor.BN(2),
+          requestedPrice: 0.5,
+        },
+      ])
+      .signers([clobManger])
+      .accounts({
+        signer: clobManger.publicKey,
+        user: userPDA,
+        market: marketPDA,
+        marketPortfolio: marketPortfolioPDA,
+      })
+      .rpc().catch(err => console.log(err));
+
+    const user = await program.account.user.fetch(userPDA);
+    console.log(user)
+    const market = await program.account.market.fetch(marketPDA);
+    console.log(market.subMarkets[0].choices)
+    const marketPortfolio = await program.account.marketPortfolio.fetch(marketPortfolioPDA);
+    console.log(marketPortfolio.subMarketPortfolio[0].choicePortfolio)  
+
+    expect(user.balance).to.equal(5)
+    expect(market.subMarkets[0].totalPot).to.equal(5)
+    expect(market.subMarkets[0].choices[1].totalPot).to.equal(2.5)
+    expect(market.subMarkets[0].choices[1].price).to.equal(0.5)
+    expect(market.subMarkets[0].choices[1].shares.toNumber()).to.equal(5)
+    expect(marketPortfolio.subMarketPortfolio[0].choicePortfolio[1].shares.toNumber()).to.equal(5)
   });
 
   it("fails to sell by shares due to fair launch", async () => {

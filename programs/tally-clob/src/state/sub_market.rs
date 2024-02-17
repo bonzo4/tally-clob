@@ -33,7 +33,7 @@ impl SubMarket {
 
 
 
-    pub fn get_buying_period(&self) -> Result<MarketStatus> {
+    pub fn get_market_period(&self) -> Result<MarketStatus> {
         let now = clock::current_timestamp();
         if now < self.fair_launch_start {return Ok(MarketStatus::Initializing)};
         // require!(now > self.fair_launch_start, TallyClobErrors::MarketIntializing);
@@ -47,21 +47,6 @@ impl SubMarket {
         if is_trading_period {return Ok(MarketStatus::Trading)};
 
         Ok(MarketStatus::Closed)
-    }
-
-    pub fn check_selling_period(&self) -> Result<MarketStatus> {
-        let now = clock::current_timestamp();
-        require!(now > self.fair_launch_start, TallyClobErrors::MarketIntializing);
-
-        let is_fair_launch = now > self.fair_launch_start 
-        && now < self.fair_launch_end ;
-        require!(!is_fair_launch, TallyClobErrors::NotSellingPeriod);
-
-        let is_trading_period =  now > self.trading_start 
-        && now < self.trading_end;
-        if is_trading_period {return Ok(MarketStatus::Trading)};
-
-        err!(TallyClobErrors::MarketClosed)
     }
 
     pub fn get_buy_order_price(&mut self, choice_id: &u64, shares_to_buy: u64) -> Result<f64> {
@@ -149,7 +134,7 @@ impl SubMarket {
         Ok(self)
     }
 
-    pub fn withdraw_from_choice_pot(&mut self, &choice_id: u64, amount: f64) -> Result<&mut Self> {
+    pub fn withdraw_from_choice_pot(&mut self, choice_id: &u64, amount: f64) -> Result<&mut Self> {
         require!(amount > 0.0, TallyClobErrors::AmountToWithdrawTooLow);
         require!(amount <= self.total_pot, TallyClobErrors::AmountToWithdrawTooGreat);
 
@@ -160,7 +145,7 @@ impl SubMarket {
         Ok(self)
     }
 
-    pub fn delete_shares_from_choice_pot(&mut self, choice_index: usize, amount: u64) -> Result<&mut Self> {
+    pub fn delete_shares_from_choice_pot(&mut self, choice_id: &u64, amount: u64) -> Result<&mut Self> {
         require!(amount > 0, TallyClobErrors::AmountToWithdrawTooLow);
 
         self

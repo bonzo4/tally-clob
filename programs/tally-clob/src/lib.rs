@@ -71,10 +71,9 @@ pub mod tally_clob {
 
     pub fn bulk_buy_by_price(
         ctx: Context<BulkBuyByPrice>,
-        orders: Vec<Order>,
-        order_data: OrderData
+        orders: Vec<Order>
     ) -> Result<()> {
-        is_wallet_manager(ctx.accounts.signer.key())?;
+        is_clob_manager(ctx.accounts.signer.key())?;
         instructions::bulk_buy_by_price(ctx, orders)
     }
 

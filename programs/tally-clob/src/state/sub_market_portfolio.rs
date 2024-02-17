@@ -26,19 +26,10 @@ impl SubMarketPortfolio {
     }
          
     pub fn add_to_portfolio(&mut self, choice_id: &u64, shares: u64) -> Result<&Self> {
-        match self
-        .get_choice_market_portfolio(choice_id) {
-            Ok(choice_market_portfolio) => {
-                choice_market_portfolio
-                    .add_to_portfolio(shares)?;
-
-            }
-            Err(_) => {
-                let new_choice_portfolio = &ChoicePortfolio::new(*choice_id, shares);
-                self.choice_portfolio.push(new_choice_portfolio.clone());
-
-            }
-        }
+        self
+            .get_choice_market_portfolio(choice_id)?
+            .add_to_portfolio(shares)?;
+        
 
         Ok(self)
     }
@@ -63,7 +54,11 @@ impl SubMarketPortfolio {
     pub fn get_choice_market_portfolio(&mut self, choice_id: &u64) -> Result<&mut ChoicePortfolio> {
         match self.choice_portfolio.binary_search_by_key(choice_id, |choice_portfolio| choice_portfolio.choice_id) {
             Ok(index) => Ok(&mut self.choice_portfolio[index]),
-            Err(_) => err!(TallyClobErrors::ChoicePortfolioNotFound),
+            Err(_) => {
+                let new_choice_portfolio = &mut ChoicePortfolio::new(*choice_id);
+                self.choice_portfolio.push(new_choice_portfolio.clone());
+                Ok(self.choice_portfolio.last_mut().unwrap())
+            },
         }
     }
     
