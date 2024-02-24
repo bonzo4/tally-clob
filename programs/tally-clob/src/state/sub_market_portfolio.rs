@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 
-use crate::{errors::TallyClobErrors, vec_size, ChoicePortfolio, SubMarket, DISCRIMINATOR_SIZE, U64_SIZE};
+use crate::{vec_size, ChoicePortfolio, SubMarket, DISCRIMINATOR_SIZE, U64_SIZE};
 
 
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]

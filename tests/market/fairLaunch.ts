@@ -345,11 +345,11 @@ describe("fair launch", () => {
       .rpc().catch(err => console.log(err));
 
     const user = await program.account.user.fetch(userPDA);
-    console.log(user)
+    // console.log(user)
     const market = await program.account.market.fetch(marketPDA);
-    console.log(market.subMarkets[0].choices)
+    // console.log(market.subMarkets[0].choices)
     const marketPortfolio = await program.account.marketPortfolio.fetch(marketPortfolioPDA);
-    console.log(marketPortfolio.subMarketPortfolio[0].choicePortfolio)  
+    // console.log(marketPortfolio.subMarketPortfolio[0].choicePortfolio)  
 
     expect(user.balance).to.equal(5)
     expect(market.subMarkets[0].totalPot).to.equal(5)

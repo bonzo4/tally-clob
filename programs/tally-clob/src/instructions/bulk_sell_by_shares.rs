@@ -31,7 +31,7 @@ pub fn bulk_sell_by_shares(
     let prices_in_range = orders.iter().enumerate().map(|(index, order)| {
         let top = acutal_prices[index] * 1.05;
         let bottom = acutal_prices[index] * 0.95;
-        top < order.requested_price && order.requested_price < bottom
+        bottom < order.requested_price && order.requested_price < top
     }).collect::<Vec<bool>>();
     require!(prices_in_range.iter().all(|in_range| !!in_range), TallyClobErrors::PriceEstimationOff);
     // 4. check if there are enough shares to sell
@@ -42,17 +42,29 @@ pub fn bulk_sell_by_shares(
     // 1. get total price based on market_status
     let order_prices = ctx.accounts.market
         .bulk_sell_price(orders)?;
-    let total_price = order_prices.iter().sum();
+    let fees = order_prices
+        .iter()
+        .map(|order_price| order_price * 0.005)
+        .collect::<Vec<f64>>();
+    let prices_with_fees = order_prices
+        .iter()
+        .enumerate()
+        .map(|(index, order_price)| order_price - fees[index])
+        .collect::<Vec<f64>>();
+    let total_order_price: f64 = prices_with_fees.iter().sum();
+    let total_fees: f64 = fees.iter().sum();
 
 
     // Make order
     // 1. update market_portfolio
     ctx.accounts.market_portfolio.bulk_sell_from_portfolio(orders)?;
     // 2. update market pots and prices
-    ctx.accounts.market.adjust_markets_after_buy(&orders, order_prices)?;
+    ctx.accounts.market.adjust_markets_after_buy(orders, order_prices)?;
     // 3. update user portfolio
-    ctx.accounts.user.add_to_balance(total_price)?;
+    ctx.accounts.user.add_to_balance(total_order_price)?;
 
+    //send fees to fee wallet
+    total_fees;
 
     Ok(())
 }

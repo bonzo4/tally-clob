@@ -20,7 +20,7 @@ pub fn bulk_sell_by_price(
     require!(has_unique_elements(sub_market_ids), TallyClobErrors::SameSubMarket);
     
     // 3. check if all the requested submarkets are in a buying period
-    let market_periods = ctx.accounts.market
+    let market_periods = &ctx.accounts.market
         .get_buying_periods(orders)?;
     let mut is_selling_periods = market_periods.iter()
         .map(|market_period| [MarketStatus::Trading].contains(market_period));
@@ -31,12 +31,13 @@ pub fn bulk_sell_by_price(
     let prices_in_range = orders.iter().enumerate().map(|(index, order)| {
         let top = acutal_prices[index] * 1.05;
         let bottom = acutal_prices[index] * 0.95;
-        top < order.requested_price && order.requested_price < bottom
+        bottom < order.requested_price && order.requested_price < top
     }).collect::<Vec<bool>>();
     require!(prices_in_range.iter().all(|in_range| !!in_range), TallyClobErrors::PriceEstimationOff);
+
     // 5. check if there are enough shares to sell
     let order_shares = ctx.accounts.market.bulk_sell_shares(orders)?;
-    let orders_with_shares = orders.iter()
+    let orders_with_shares = &orders.iter()
         .enumerate()
         .map(|(order_index, order)| {
             let mut order_with_share = order.clone();
@@ -48,16 +49,15 @@ pub fn bulk_sell_by_price(
 
     // Prep order 
     // 1. get total price
-    let order_prices = orders.iter()
-        .map(|order| order.amount)
-        .collect::<Vec<f64>>();
+    let order_prices = ctx.accounts.market
+        .bulk_sell_price(orders_with_shares)?;
     let total_price = order_prices.iter().sum();
 
     // Make order
     // 1. update market_portfolio
     ctx.accounts.market_portfolio.bulk_sell_from_portfolio(&orders_with_shares)?;
     // 2. update market pots and prices
-    ctx.accounts.market.adjust_markets_after_buy(&orders, order_prices)?;
+    ctx.accounts.market.adjust_markets_after_buy(&orders_with_shares, order_prices)?;
     // 3. update user portfolio
     ctx.accounts.user.add_to_balance(total_price)?;
 

@@ -15,13 +15,27 @@ pub struct Order {
     pub amount: f64,
     pub sub_market_id: u64,
     pub choice_id: u64,
-    pub requested_price: f64,
+    pub requested_price_per_share: f64,
+}
+
+
+#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone, PartialEq, Eq)]
+pub enum OrderType {
+    Price,
+    Shares
+}
+
+
+#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone, PartialEq)]
+pub struct BuyOrderValues {
+    shares_to_buy: u64,
+    buy_price: f64
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone, PartialEq)]
-pub struct OrderData {
-    pub market_key: Pubkey,
-    pub user_key: Pubkey,
+pub struct SellOrderValues {
+    shares_to_sell: u64,
+    sell_price: f64
 }
 
 impl Market {
@@ -52,6 +66,46 @@ impl Market {
             .collect::<Vec<f64>>();
 
         Ok(order_prices)
+    }
+
+    pub fn bulk_buy_values(
+        &mut self, 
+        orders: Vec<Order>,
+        order_type: OrderType,
+        market_periods: Vec<MarketStatus>,
+    ) -> Result<Vec<BuyOrderValues>> {
+        
+        if order_type == OrderType::Price {
+            let order_values =  orders.iter()
+                .map(|order| {
+                    let order_shares = self
+                        .get_sub_market(&order.sub_market_id)
+                        .unwrap()
+                        .get_buy_order_shares(&order.choice_id, order.amount)
+                        .unwrap();
+            
+                BuyOrderValues {buy_price: order.amount, shares_to_buy: order_shares}
+            }).collect::<Vec<BuyOrderValues>>();
+
+            Ok(order_values)
+        }
+
+        let order_values = orders.iter()
+            .enumerate()
+            .map(|(order_index, order)| {
+                if market_periods[order_index] == MarketStatus::FairLaunch {
+                    return order.amount * self.get_sub_market_default_price(&order.sub_market_id).unwrap();
+                } 
+                let sub_market_id = &order.sub_market_id;
+                let order_price = self.get_sub_market(sub_market_id)
+                    .unwrap()
+                    .get_buy_order_price(&order.choice_id, order.amount as u64)
+                    .unwrap();
+
+                BuyOrderValues{buy_price: }
+                
+            })
+            .collect::<Vec<BuyOrderValues>>();
     }
 
 

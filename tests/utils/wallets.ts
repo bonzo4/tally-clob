@@ -4,6 +4,7 @@ import user from '../../user.json'
 import authorizedUser from '../../authorized_user.json'
 import walletManager from '../../wallet-manager.json'
 import clobManager from '../../clob-manager.json'
+import feeManager from '../../fee-manager.json'
 import { createAssociatedTokenAccount, getAssociatedTokenAddress, getAssociatedTokenAddressSync } from "@solana/spl-token";
 import { PublicKey } from "@solana/web3.js";
 
@@ -26,6 +27,9 @@ export function getWalletManagerKeypair(): anchor.web3.Keypair {
 
 export function getClobManagerKeypair():anchor.web3.Keypair {
     return anchor.web3.Keypair.fromSecretKey(Uint8Array.from(clobManager));
+}
+export function getFeeManagerKeypair():anchor.web3.Keypair {
+    return anchor.web3.Keypair.fromSecretKey(Uint8Array.from(feeManager));
 }
 
 

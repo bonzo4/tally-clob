@@ -20,7 +20,7 @@ pub fn bulk_buy_by_price(
     require!(has_unique_elements(sub_market_ids), TallyClobErrors::SameSubMarket);
     
     // 3. check if all the requested submarkets are in a buying period
-    let market_periods = ctx.accounts.market
+    let market_periods = &ctx.accounts.market
         .get_buying_periods(orders)?;
     let mut is_buying_periods = market_periods.iter()
         .map(|market_period| [MarketStatus::FairLaunch, MarketStatus::Trading].contains(market_period));
@@ -35,40 +35,42 @@ pub fn bulk_buy_by_price(
         }
         let top = acutal_prices[index] * 1.05;
         let bottom = acutal_prices[index] * 0.95;
-        top < order.requested_price && order.requested_price < bottom
+        bottom < order.requested_price && order.requested_price < top
     }).collect::<Vec<bool>>();
     require!(prices_in_range.iter().all(|in_range| !!in_range), TallyClobErrors::PriceEstimationOff);
     
-    // 5. check if user has enough balance
-    let order_prices = orders.iter()
-        .enumerate()
-        .map(|(_index, order)| {
-            order.amount
-        }
-    ).collect::<Vec<f64>>();
-    let total_price = order_prices.iter()
-        .sum();
-    require!(ctx.accounts.user.balance >= total_price, TallyClobErrors::BalanceTooLow);
+    
 
     // Prep order 
     // 1. get total shares based on market_status
     let order_shares = ctx.accounts.market
-        .bulk_buy_shares(orders, market_periods)?;
+        .bulk_buy_shares(orders, market_periods.to_vec())?;
+
+    let orders_with_shares = &orders.iter()
+    .enumerate()
+    .map(|(order_index, order)| {
+        let mut order_with_share = order.clone();
+        order_with_share.amount = order_shares[order_index] as f64;
+        order_with_share
+    }).collect::<Vec<Order>>();
+
+    // 2. check if user has enough balance
+    let order_prices = ctx.accounts.market
+        .bulk_buy_price(orders_with_shares, market_periods.to_vec())?;
+    let total_price = order_prices.iter()
+        .sum();
+    require!(ctx.accounts.user.balance >= total_price, TallyClobErrors::BalanceTooLow);
 
     // Make order
     // 1. update user balance
     ctx.accounts.user.withdraw_from_balance(total_price)?;
     // 2. update market pots and prices
-    let orders_with_shares = orders.iter()
-        .enumerate()
-        .map(|(order_index, order)| {
-            let mut order_with_share = order.clone();
-            order_with_share.amount = order_shares[order_index] as f64;
-            order_with_share
-        }).collect::<Vec<Order>>();
+    
     ctx.accounts.market.adjust_markets_after_buy(&orders_with_shares, order_prices)?;
     // 3. update user portfolio
     ctx.accounts.market_portfolio.bulk_add_to_portfolio(&orders_with_shares)?;
+
+    //send fees
 
     Ok(())
 }

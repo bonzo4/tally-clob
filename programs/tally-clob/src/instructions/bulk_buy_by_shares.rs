@@ -43,21 +43,33 @@ pub fn bulk_buy_by_shares(
     // Prep order 
     // 1. get total price based on market_status
     let order_prices = ctx.accounts.market
-        .bulk_buy_price(orders, market_periods)?;
-    let total_price = order_prices.iter().sum();
-    // 2. check that the total price is less than the user balance
-    require!(ctx.accounts.user.balance >= total_price, TallyClobErrors::BalanceTooLow);
-
+        .bulk_sell_price(orders)?;
+    let fees = order_prices
+        .iter()
+        .map(|order_price| order_price * 0.005)
+        .collect::<Vec<f64>>();
+    let prices_with_fees = order_prices
+        .iter()
+        .enumerate()
+        .map(|(index, order_price)| order_price + fees[index])
+        .collect::<Vec<f64>>();
+    let total_order_price: f64 = prices_with_fees.iter().sum();
+    let total_fees: f64 = fees.iter().sum();
+    require!(ctx.accounts.user.balance >= total_order_price, TallyClobErrors::BalanceTooLow);
 
     // Make order
     // 1. update user balance
-    ctx.accounts.user.withdraw_from_balance(total_price)?;
+    ctx.accounts.user.withdraw_from_balance(total_order_price)?;
     // 2. update market pots and prices
     ctx.accounts.market.adjust_markets_after_buy(orders, order_prices)?;
     // 3. update user portfolio
     ctx.accounts.market_portfolio.bulk_add_to_portfolio(orders)?;
 
+    // send fees
+    total_fees;
+
     Ok(())
+
 }
 
 

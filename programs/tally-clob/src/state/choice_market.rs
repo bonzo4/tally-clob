@@ -6,6 +6,8 @@ use crate::{errors::TallyClobErrors, BOOL_SIZE, U64_SIZE};
 
 use super::{DISCRIMINATOR_SIZE, F64_SIZE};
 
+
+
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
 pub struct ChoiceMarket {
     pub id: u64,
@@ -19,21 +21,31 @@ impl ChoiceMarket {
 
     pub const SIZE: usize = DISCRIMINATOR_SIZE
     + U64_SIZE
-    + (F64_SIZE * 3)
+    + U64_SIZE
+    + (F64_SIZE * 2)
     + BOOL_SIZE;
 
 
     pub fn get_buy_order_price(
-        &mut self, market_pot: f64, shares_to_buy: u64,
+        &mut self, 
+        mut market_pot: f64, 
+        shares_to_buy: u64,
     ) -> Result<f64> {
 
         let mut shares = 0;
-        let mut total_price = 0.0;
-
+        let mut total_price  = 0.0;
+        let mut price = self.price;
+        let mut total_pot = self.total_pot;
+         
+        
         while shares < shares_to_buy {
-            let new_price = (self.total_pot + self.price) / (market_pot + self.price);
-            total_price += new_price;
-            shares += 1
+            
+            total_price += price;
+            shares += 1;
+            total_pot += price;
+            market_pot += price;
+
+            if market_pot == 0.0 {price = total_pot / market_pot} else {price = 1.0}; 
         }
 
         Ok(total_price)
@@ -42,17 +54,24 @@ impl ChoiceMarket {
 
     pub fn get_sell_order_price(
         &self, 
-        market_pot: f64, 
+        mut market_pot: f64, 
         shares_to_sell: u64
     ) -> Result<f64> {
 
         let mut shares = 0;
-        let mut total_price = 0.0;
-
+        let mut total_price  = 0.0;
+        let mut price = self.price;
+        let mut total_pot = self.total_pot;
+         
+        
         while shares < shares_to_sell {
-            let new_price = (self.total_pot - self.price) / (market_pot - self.price);
-            total_price += new_price;
-            shares += 1
+            
+            total_price += price;
+            shares += 1;
+            total_pot += price;
+            market_pot += price;
+
+            if market_pot == 0.0 {price = total_pot / market_pot} else {price = 1.0}; 
         }
 
         Ok(total_price)
@@ -60,17 +79,23 @@ impl ChoiceMarket {
     }
 
     pub fn get_buy_order_shares(
-        &mut self, market_pot: f64, buy_price: f64
+        &mut self, mut market_pot: f64, buy_price: f64
     ) -> Result<u64> {
         
         let mut shares = 0;
         let mut total_price  = 0.0;
+        let mut price = self.price;
+        let mut total_pot = self.total_pot;
+         
         
         while total_price < buy_price {
             
-            let new_price = (self.total_pot + self.price) / (market_pot + self.price);
-            total_price += new_price;
+            total_price += price;
             shares += 1;
+            total_pot += price;
+            market_pot += price;
+
+            if market_pot == 0.0 {price = total_pot / market_pot} else {price = 1.0}; 
         }
 
         Ok(shares)
@@ -78,19 +103,108 @@ impl ChoiceMarket {
     }
 
     pub fn get_sell_order_shares(
-        &self, market_pot: f64, sell_price: f64
+        &self, mut market_pot: f64, sell_price: f64
     ) -> Result<u64> {
         
         let mut shares = 0;
-        let mut total_price = 0.0;
-
+        let mut total_price  = 0.0;
+        let mut price = self.price;
+        let mut total_pot = self.total_pot;
+         
+        
         while total_price < sell_price {
-            let new_price = (self.total_pot - self.price) / (market_pot - self.price);
-            total_price += new_price;
+            
+            total_price += price;
             shares += 1;
+            total_pot += price;
+            market_pot += price;
+
+            if market_pot == 0.0 {price = total_pot / market_pot} else {price = 1.0}; 
         }
 
         Ok(shares)
+    }
+
+    pub fn get_buy_order_values(
+        &self, 
+        mut market_pot: f64, 
+        buy_price: Option<f64>, 
+        shares_to_buy: Option<u64>
+    ) -> Result<BuyOrderValues> {
+
+        let mut shares = 0;
+        let mut total_price  = 0.0;
+        let mut price = self.price;
+        let mut total_pot = self.total_pot;
+
+        if buy_price.is_some() {
+            let buy_price = buy_price.unwrap();
+            while total_price < buy_price {
+            
+                total_price += price;
+                shares += 1;
+                total_pot += price;
+                market_pot += price;
+    
+                if market_pot == 0.0 {price = total_pot / market_pot} else {price = 1.0}; 
+            }
+            
+            return Ok(BuyOrderValues {buy_price, shares_to_buy: shares})
+        }
+        let shares_to_buy = shares_to_buy.unwrap();
+        while shares < shares_to_buy {
+        
+            total_price += price;
+            shares += 1;
+            total_pot += price;
+            market_pot += price;
+
+            if market_pot == 0.0 {price = total_pot / market_pot} else {price = 1.0}; 
+        }
+
+        Ok(BuyOrderValues {buy_price: total_price, shares_to_buy})
+        
+    }
+
+    pub fn get_sell_order_values(
+        &self, 
+        mut market_pot: f64, 
+        sell_price: Option<f64>, 
+        shares_to_sell: Option<u64>
+    ) -> Result<SellOrderValues> {
+
+        let mut shares = 0;
+        let mut total_price  = 0.0;
+        let mut price = self.price;
+        let mut total_pot = self.total_pot;
+
+        if sell_price.is_some() {
+            let sell_price = sell_price.unwrap();
+            while total_price < sell_price {
+            
+                total_price += price;
+                shares += 1;
+                total_pot += price;
+                market_pot += price;
+    
+                if market_pot == 0.0 {price = total_pot / market_pot} else {price = 1.0}; 
+            }
+            
+            return Ok(SellOrderValues {sell_price, shares_to_sell: shares})
+        }
+        let shares_to_sell = shares_to_sell.unwrap();
+        while shares < shares_to_sell {
+        
+            total_price += price;
+            shares += 1;
+            total_pot += price;
+            market_pot += price;
+
+            if market_pot == 0.0 {price = total_pot / market_pot} else {price = 1.0}; 
+        }
+
+        Ok(SellOrderValues {sell_price: total_price, shares_to_sell})
+        
     }
    
 
