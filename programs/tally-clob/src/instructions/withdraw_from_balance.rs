@@ -16,26 +16,38 @@ pub fn withdraw_from_balance(ctx: Context<WithdrawFromBalance>, amount: f64) -> 
 
     let destination = &ctx.accounts.to_usdc_account;
     let source = &ctx.accounts.from_usdc_account;
+    let fee_account = &ctx.accounts.fee_usdc_account;
     let authority = &ctx.accounts.signer;
 
     require!(source.owner.to_string() == authority.key().to_string(), TallyClobErrors::NotAuthorized);
 
     let token_program = &ctx.accounts.token_program;
+    let cpi_program = token_program.to_account_info();
 
+    let fee_amount = amount * 0.05;
+    let new_amount = amount - fee_amount;
+    let decimals:u64 = 10_u64.pow(mint.decimals as u32);
+
+    // transfer fees
+    let fee_cpi_accounts = Transfer {
+        from: source.to_account_info().clone(),
+        to: fee_account.to_account_info().clone(),
+        authority: authority.to_account_info().clone()
+    };
+
+    transfer (
+        CpiContext::new(cpi_program, fee_cpi_accounts),
+        (fee_amount * decimals as f64) as u64 
+    );
+
+    // transfer amount
     let cpi_accounts = Transfer {
         from: source.to_account_info().clone(),
         to: destination.to_account_info().clone(),
         authority: authority.to_account_info().clone()
     };
 
-    let fee_amount = amount * 0.05;
-    let new_amount = amount - fee_amount;
-
-    let cpi_program = token_program.to_account_info();
-
-    let decimals:u64 = 10_u64.pow(mint.decimals as u32);
-
-    transfer(
+    transfer (
         CpiContext::new(cpi_program, cpi_accounts),
         (new_amount * decimals as f64) as u64 
     )?;
@@ -53,6 +65,8 @@ pub struct WithdrawFromBalance<'info> {
     pub from_usdc_account: Account<'info, TokenAccount>,
     #[account(mut)]
     pub to_usdc_account: Account<'info, TokenAccount>,
+    #[account(mut)]
+    pub fee_usdc_account: Account<'info, TokenAccount>,
     pub system_program: Program<'info, System>,
     pub mint: Account<'info, Mint>,
     pub token_program: Program<'info, Token>,

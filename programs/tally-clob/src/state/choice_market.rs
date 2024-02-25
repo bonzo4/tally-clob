@@ -6,7 +6,19 @@ use crate::{errors::TallyClobErrors, BOOL_SIZE, U64_SIZE};
 
 use super::{DISCRIMINATOR_SIZE, F64_SIZE};
 
+#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone, PartialEq)]
+pub struct BuyOrderValues {
+    pub shares_to_buy: u64,
+    pub buy_price: f64,
+    pub fee_price: f64
+}
 
+#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone, PartialEq)]
+pub struct SellOrderValues {
+    pub shares_to_sell: u64,
+    pub sell_price: f64,
+    pub fee_price: f64
+}
 
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
 pub struct ChoiceMarket {
@@ -26,184 +38,92 @@ impl ChoiceMarket {
     + BOOL_SIZE;
 
 
-    pub fn get_buy_order_price(
-        &mut self, 
-        mut market_pot: f64, 
-        shares_to_buy: u64,
-    ) -> Result<f64> {
-
-        let mut shares = 0;
-        let mut total_price  = 0.0;
-        let mut price = self.price;
-        let mut total_pot = self.total_pot;
-         
-        
-        while shares < shares_to_buy {
-            
-            total_price += price;
-            shares += 1;
-            total_pot += price;
-            market_pot += price;
-
-            if market_pot == 0.0 {price = total_pot / market_pot} else {price = 1.0}; 
-        }
-
-        Ok(total_price)
-
-    }
-
-    pub fn get_sell_order_price(
-        &self, 
-        mut market_pot: f64, 
-        shares_to_sell: u64
-    ) -> Result<f64> {
-
-        let mut shares = 0;
-        let mut total_price  = 0.0;
-        let mut price = self.price;
-        let mut total_pot = self.total_pot;
-         
-        
-        while shares < shares_to_sell {
-            
-            total_price += price;
-            shares += 1;
-            total_pot += price;
-            market_pot += price;
-
-            if market_pot == 0.0 {price = total_pot / market_pot} else {price = 1.0}; 
-        }
-
-        Ok(total_price)
-
-    }
-
-    pub fn get_buy_order_shares(
-        &mut self, mut market_pot: f64, buy_price: f64
-    ) -> Result<u64> {
-        
-        let mut shares = 0;
-        let mut total_price  = 0.0;
-        let mut price = self.price;
-        let mut total_pot = self.total_pot;
-         
-        
-        while total_price < buy_price {
-            
-            total_price += price;
-            shares += 1;
-            total_pot += price;
-            market_pot += price;
-
-            if market_pot == 0.0 {price = total_pot / market_pot} else {price = 1.0}; 
-        }
-
-        Ok(shares)
-
-    }
-
-    pub fn get_sell_order_shares(
-        &self, mut market_pot: f64, sell_price: f64
-    ) -> Result<u64> {
-        
-        let mut shares = 0;
-        let mut total_price  = 0.0;
-        let mut price = self.price;
-        let mut total_pot = self.total_pot;
-         
-        
-        while total_price < sell_price {
-            
-            total_price += price;
-            shares += 1;
-            total_pot += price;
-            market_pot += price;
-
-            if market_pot == 0.0 {price = total_pot / market_pot} else {price = 1.0}; 
-        }
-
-        Ok(shares)
-    }
-
     pub fn get_buy_order_values(
         &self, 
         mut market_pot: f64, 
-        buy_price: Option<f64>, 
-        shares_to_buy: Option<u64>
+        buy_price: f64, 
+        shares_to_buy: u64
     ) -> Result<BuyOrderValues> {
 
-        let mut shares = 0;
-        let mut total_price  = 0.0;
+        let mut cumulative_shares = 0;
+        let mut cumulative_price  = 0.0;
         let mut price = self.price;
         let mut total_pot = self.total_pot;
 
-        if buy_price.is_some() {
-            let buy_price = buy_price.unwrap();
-            while total_price < buy_price {
+        if shares_to_buy == 0 {
+            let fee_price = buy_price * 0.005;
+            while cumulative_price + price < buy_price - fee_price {
             
-                total_price += price;
-                shares += 1;
-                total_pot += price;
                 market_pot += price;
+                total_pot += price; 
+                
+                cumulative_shares += 1;
+                cumulative_price += price;
     
                 if market_pot == 0.0 {price = total_pot / market_pot} else {price = 1.0}; 
             }
             
-            return Ok(BuyOrderValues {buy_price, shares_to_buy: shares})
-        }
-        let shares_to_buy = shares_to_buy.unwrap();
-        while shares < shares_to_buy {
-        
-            total_price += price;
-            shares += 1;
-            total_pot += price;
-            market_pot += price;
+            return Ok(BuyOrderValues {buy_price, fee_price, shares_to_buy: cumulative_shares})
+        } 
+        if buy_price == 0.0 {
+            while cumulative_shares < shares_to_buy {
+                market_pot += price;
+                total_pot += price; 
+                
+                cumulative_shares += 1;
+                cumulative_price += price;
+    
+                if market_pot == 0.0 {price = total_pot / market_pot} else {price = 1.0}; 
+            }
+            let fee_price = cumulative_price * 0.005;
 
-            if market_pot == 0.0 {price = total_pot / market_pot} else {price = 1.0}; 
-        }
+            return Ok(BuyOrderValues{buy_price: cumulative_price, fee_price, shares_to_buy})
+        } 
 
-        Ok(BuyOrderValues {buy_price: total_price, shares_to_buy})
-        
+        err!(TallyClobErrors::NotAValidOrder)
     }
 
     pub fn get_sell_order_values(
         &self, 
         mut market_pot: f64, 
-        sell_price: Option<f64>, 
-        shares_to_sell: Option<u64>
+        sell_price: f64, 
+        shares_to_sell: u64
     ) -> Result<SellOrderValues> {
 
-        let mut shares = 0;
-        let mut total_price  = 0.0;
+        let mut cumulative_shares = 0;
+        let mut cumulative_price  = 0.0;
         let mut price = self.price;
         let mut total_pot = self.total_pot;
 
-        if sell_price.is_some() {
-            let sell_price = sell_price.unwrap();
-            while total_price < sell_price {
+        if shares_to_sell == 0 {
+            let fee_price = sell_price * 0.005;
+            while cumulative_price + price < sell_price - fee_price {
             
-                total_price += price;
-                shares += 1;
-                total_pot += price;
-                market_pot += price;
+                market_pot -= price;
+                total_pot -= price; 
+
+                cumulative_shares += 1;
+                cumulative_price += price;
     
                 if market_pot == 0.0 {price = total_pot / market_pot} else {price = 1.0}; 
             }
             
-            return Ok(SellOrderValues {sell_price, shares_to_sell: shares})
+            return Ok(SellOrderValues {sell_price, fee_price, shares_to_sell: cumulative_shares})
         }
-        let shares_to_sell = shares_to_sell.unwrap();
-        while shares < shares_to_sell {
-        
-            total_price += price;
-            shares += 1;
-            total_pot += price;
-            market_pot += price;
+        if sell_price == 0.0 {
+            while cumulative_shares < shares_to_sell {
+                market_pot -= price;
+                total_pot -= price; 
 
-            if market_pot == 0.0 {price = total_pot / market_pot} else {price = 1.0}; 
+                cumulative_shares += 1;
+                cumulative_price += price;
+            }
+
+            let fee_price = cumulative_price * 0.005;
+            return Ok(SellOrderValues{sell_price: cumulative_price, fee_price, shares_to_sell})
         }
 
-        Ok(SellOrderValues {sell_price: total_price, shares_to_sell})
+        err!(TallyClobErrors::NotAValidOrder)
         
     }
    

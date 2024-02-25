@@ -47,5 +47,7 @@ pub enum TallyClobErrors {
     #[msg("Requested price is to far off from acutal price, cancelling order.")]
     PriceEstimationOff,
     #[msg("Can only withdraw usdc.")]
-    NotUSDC
+    NotUSDC,
+    #[msg("Not a valid order")]
+    NotAValidOrder
 }

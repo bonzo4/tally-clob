@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 
-use crate::{errors::TallyClobErrors, MarketStatus, SubMarket, U8_SIZE};
+use crate::{errors::TallyClobErrors, BuyOrderValues, MarketStatus, SellOrderValues, SubMarket, U8_SIZE};
 
 use super::{vec_size, DISCRIMINATOR_SIZE};
 
@@ -18,24 +18,19 @@ pub struct Order {
     pub requested_price_per_share: f64,
 }
 
+#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone, PartialEq)]
+pub struct FinalOrder {
+    pub sub_market_id: u64,
+    pub choice_id: u64,
+    pub price: f64,
+    pub shares: u64
+}
+
 
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone, PartialEq, Eq)]
 pub enum OrderType {
     Price,
     Shares
-}
-
-
-#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone, PartialEq)]
-pub struct BuyOrderValues {
-    shares_to_buy: u64,
-    buy_price: f64
-}
-
-#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone, PartialEq)]
-pub struct SellOrderValues {
-    shares_to_sell: u64,
-    sell_price: f64
 }
 
 impl Market {
@@ -68,121 +63,85 @@ impl Market {
         Ok(order_prices)
     }
 
-    pub fn bulk_buy_values(
-        &mut self, 
-        orders: Vec<Order>,
+    pub fn bulk_buy_values_by_price(
+        &mut self,
+        orders: &Vec<Order>,
         order_type: OrderType,
-        market_periods: Vec<MarketStatus>,
+        market_periods: &Vec<MarketStatus>
     ) -> Result<Vec<BuyOrderValues>> {
-        
-        if order_type == OrderType::Price {
-            let order_values =  orders.iter()
-                .map(|order| {
-                    let order_shares = self
-                        .get_sub_market(&order.sub_market_id)
-                        .unwrap()
-                        .get_buy_order_shares(&order.choice_id, order.amount)
-                        .unwrap();
-            
-                BuyOrderValues {buy_price: order.amount, shares_to_buy: order_shares}
-            }).collect::<Vec<BuyOrderValues>>();
-
-            Ok(order_values)
-        }
-
         let order_values = orders.iter()
-            .enumerate()
-            .map(|(order_index, order)| {
-                if market_periods[order_index] == MarketStatus::FairLaunch {
-                    return order.amount * self.get_sub_market_default_price(&order.sub_market_id).unwrap();
-                } 
-                let sub_market_id = &order.sub_market_id;
-                let order_price = self.get_sub_market(sub_market_id)
-                    .unwrap()
-                    .get_buy_order_price(&order.choice_id, order.amount as u64)
-                    .unwrap();
+            .map(|order| self
+                .get_sub_market(&order.sub_market_id)
+                .unwrap()
+                .get_buy_values_by_price(&order.choice_id, order.amount)
+                .unwrap()
+            ).collect::<Vec<BuyOrderValues>>();
 
-                BuyOrderValues{buy_price: }
-                
-            })
-            .collect::<Vec<BuyOrderValues>>();
+        Ok(order_values)
     }
 
-
-    pub fn bulk_buy_price(&mut self, orders: &Vec<Order>, market_periods: Vec<MarketStatus>) -> Result<Vec<f64>> {
-        let order_prices = orders.iter()
-            .enumerate()
-            .map(|(order_index, order)| {
-                if market_periods[order_index] == MarketStatus::FairLaunch {
-                    return order.amount * self.get_sub_market_default_price(&order.sub_market_id).unwrap();
-                } 
-                let sub_market_id = &order.sub_market_id;
-                self.get_sub_market(sub_market_id).unwrap().get_buy_order_price(&order.choice_id, order.amount as u64).unwrap()
-                
-            })
-            .collect();
-        
-        Ok(order_prices)
-    }
-
-    pub fn bulk_sell_price(&mut self, orders: &Vec<Order>) -> Result<Vec<f64>> {
-        let order_prices =  orders.iter()
-        .map(|order| {
-            self.get_sub_market(&order.sub_market_id)
+    pub fn bulk_buy_values_by_shares(
+        &mut self,
+        orders: &Vec<Order>,
+        order_type: OrderType,
+        market_periods: &Vec<MarketStatus>
+    ) -> Result<Vec<BuyOrderValues>> {
+        let order_values = orders.iter()
+        .map(|order| self
+            .get_sub_market(&order.sub_market_id)
             .unwrap()
-            .get_sell_order_price(&order.choice_id, order.amount as u64)
+            .get_buy_values_by_shares(&order.choice_id, order.amount as u64)
             .unwrap()
-        }).collect();
-        
-        Ok(order_prices)
+        ).collect::<Vec<BuyOrderValues>>();
+
+    Ok(order_values)
     }
 
-    pub fn bulk_buy_shares(&mut self, orders: &Vec<Order>, market_periods: Vec<MarketStatus>) -> Result<Vec<u64>> {
-        let order_shares = orders.iter()
-            .enumerate()
-            .map(|(order_index, order)| {
-                
-                if market_periods[order_index] == MarketStatus::FairLaunch {
-                    return (order.amount / self.get_sub_market_default_price(&order.sub_market_id).unwrap()) as u64
-                }
-            
-                self
-                    .get_sub_market(&order.sub_market_id)
-                    .unwrap()
-                    .get_buy_order_shares(&order.choice_id, order.amount)
-                    .unwrap()
-            
-            }).collect();
+    pub fn bulk_sell_values_by_price(
+        &mut self,
+        orders: &Vec<Order>,
+        order_type: OrderType,
+        market_periods: &Vec<MarketStatus>
+    ) -> Result<Vec<SellOrderValues>> {
+        let order_values = orders.iter()
+            .map(|order| self
+                .get_sub_market(&order.sub_market_id)
+                .unwrap()
+                .get_sell_values_by_price(&order.choice_id, order.amount)
+                .unwrap()
+            ).collect::<Vec<SellOrderValues>>();
 
-            Ok(order_shares)
+        Ok(order_values)
     }
 
-    pub fn bulk_sell_shares(&mut self, orders: &Vec<Order>) -> Result<Vec<u64>> {
-        let order_shares = orders.iter()
-            .map(|order| {
-                self
-                    .get_sub_market(&order.sub_market_id)
-                    .unwrap()
-                    .get_sell_order_shares(&order.choice_id, order.amount)
-                    .unwrap()
-            }).collect();
+    pub fn bulk_sell_values_by_shares(
+        &mut self,
+        orders: &Vec<Order>,
+        order_type: OrderType,
+        market_periods: &Vec<MarketStatus>
+    ) -> Result<Vec<SellOrderValues>> {
+        let order_values = orders.iter()
+        .map(|order| self
+            .get_sub_market(&order.sub_market_id)
+            .unwrap()
+            .get_sell_values_by_shares(&order.choice_id, order.amount as u64)
+            .unwrap()
+        ).collect::<Vec<SellOrderValues>>();
 
-        Ok(order_shares)
+    Ok(order_values)
     }
 
-    pub fn adjust_markets_after_buy(&mut self, orders: &Vec<Order>, order_prices: Vec<f64>) -> Result<()> {
-        orders.iter()
-        .enumerate()
-        .for_each(|(order_index,order)| {
-            let order_price = order_prices[order_index];
+    pub fn adjust_markets_after_buy(&mut self, final_orders: &Vec<FinalOrder>,) -> Result<()> {
+        final_orders.iter()
+        .for_each(|order| {
             self
                 .get_sub_market(&order.sub_market_id)
                 .unwrap()
-                .add_to_pot(order_price)
+                .add_to_pot(order.price)
                 .unwrap()
-                .add_to_choice_pot(&order.choice_id, order_price)
+                .add_to_choice_pot(&order.choice_id, order.price)
                 .unwrap()
-                .add_to_choice_shares(&order.choice_id, order.amount as u64)
+                .add_to_choice_shares(&order.choice_id, order.shares)
                 .unwrap()
                 .reprice_choices()
                 .unwrap();
@@ -191,19 +150,17 @@ impl Market {
         Ok(())
     }
 
-    pub fn adjust_markets_after_sell(&mut self, orders: &Vec<Order>, order_prices: Vec<f64>) -> Result<()> {
-        orders.iter()
-        .enumerate()
-        .for_each(|(order_index,order)| {
-            let order_price = order_prices[order_index];
+    pub fn adjust_markets_after_sell(&mut self, final_orders: &Vec<FinalOrder>) -> Result<()> {
+        final_orders.iter()
+        .for_each(|order| {
             self
                 .get_sub_market(&order.sub_market_id)
                 .unwrap()
-                .withdraw_from_pot(order_price)
+                .withdraw_from_pot(order.price)
                 .unwrap()
-                .withdraw_from_choice_pot(&order.choice_id, order_price)
+                .withdraw_from_choice_pot(&order.choice_id, order.price)
                 .unwrap()
-                .delete_shares_from_choice_pot(&order.choice_id, order.amount as u64)
+                .delete_shares_from_choice_pot(&order.choice_id, order.shares)
                 .unwrap()
                 .reprice_choices()
                 .unwrap();

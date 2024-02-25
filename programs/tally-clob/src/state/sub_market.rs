@@ -2,7 +2,7 @@ use std::ops::{AddAssign, SubAssign};
 
 use anchor_lang::prelude::*;
 
-use crate::{errors::TallyClobErrors, utils::clock, BOOL_SIZE, U64_SIZE};
+use crate::{errors::TallyClobErrors, utils::clock, BuyOrderValues, SellOrderValues, BOOL_SIZE, U64_SIZE};
 
 use super::{vec_size, ChoiceMarket, DISCRIMINATOR_SIZE, F64_SIZE, I64_SIZE, U8_SIZE };
 
@@ -18,6 +18,7 @@ pub struct SubMarket {
     pub trading_end: i64,
     pub resolved: bool
 }
+
 
 impl SubMarket {
     pub const TITLE_MAX_LENGTH: usize = 100;
@@ -49,40 +50,26 @@ impl SubMarket {
         Ok(MarketStatus::Closed)
     }
 
-    pub fn get_buy_order_price(&mut self, choice_id: &u64, shares_to_buy: u64) -> Result<f64> {
-        let total_pot = self.total_pot;
-        let order_price = self
+    pub fn get_buy_values_by_shares(&mut self, choice_id: &u64, shares_to_buy: u64) -> Result<BuyOrderValues> {
+        Ok(self
             .get_choice(choice_id)?
-            .get_buy_order_price(total_pot, shares_to_buy)?;
-
-        Ok(order_price)
+            .get_buy_order_values(self.total_pot, 0.0, shares_to_buy)?)
     }
 
-    pub fn get_sell_order_price(&mut self, choice_id: &u64, shares_to_sell: u64) -> Result<f64> {
-        let total_pot = self.total_pot;
-        let order_price = self
-            .get_choice(choice_id)?
-            .get_sell_order_price(total_pot, shares_to_sell)?;
-
-        Ok(order_price)
+    pub fn get_buy_values_by_price(&mut self, choice_id: &u64, buy_price: f64) -> Result<BuyOrderValues> {
+        Ok(self.get_choice(choice_id)?
+        .get_buy_order_values(self.total_pot, buy_price, 0)?)
     }
 
-    pub fn get_buy_order_shares(&mut self, choice_id: &u64, buy_price: f64) -> Result<u64> {
-        let total_pot = self.total_pot;
-        let order_shares = self
+    pub fn get_sell_values_by_shares(&mut self, choice_id: &u64, shares_to_sell: u64) -> Result<SellOrderValues> {
+        Ok(self
             .get_choice(choice_id)?
-            .get_buy_order_shares(total_pot, buy_price)?;
-
-        Ok(order_shares)
+            .get_sell_order_values(self.total_pot, 0.0, shares_to_sell)?)
     }
 
-    pub fn get_sell_order_shares(&mut self, choice_id: &u64, sell_price: f64) -> Result<u64> {
-        let total_pot = self.total_pot;
-        let order_shares = self
-            .get_choice(choice_id)?
-            .get_sell_order_shares(total_pot, sell_price)?;
-
-        Ok(order_shares)
+    pub fn get_sell_values_by_price(&mut self, choice_id: &u64, sell_price: f64) -> Result<SellOrderValues> {
+        Ok(self.get_choice(choice_id)?
+        .get_sell_order_values(self.total_pot, sell_price, 0)?)
     }
 
     pub fn reprice_choices(&mut self) -> Result<&mut Self> {

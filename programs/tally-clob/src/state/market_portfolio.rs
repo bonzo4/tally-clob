@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 
-use crate::{errors::TallyClobErrors, vec_size, Market, Order, SubMarketPortfolio, DISCRIMINATOR_SIZE, U8_SIZE};
+use crate::{errors::TallyClobErrors, vec_size, FinalOrder, Market, Order, SubMarketPortfolio, DISCRIMINATOR_SIZE, U8_SIZE};
 
 #[account]
 pub struct MarketPortfolio {
@@ -28,27 +28,27 @@ impl MarketPortfolio {
         Ok(self)
     }
     
-    pub fn bulk_add_to_portfolio(&mut self, orders: &Vec<Order>) ->Result<&Self> {
-        orders.iter()
+    pub fn bulk_add_to_portfolio(&mut self, final_orders: &Vec<FinalOrder>) ->Result<&Self> {
+        final_orders.iter()
             .for_each(|order| {
                 self.add_to_portfolio(
                     &order.sub_market_id, 
                     &order.choice_id, 
-                    order.amount as u64
+                    order.shares
                 ).unwrap();
             });
 
         Ok(self)
     }
 
-    pub fn bulk_sell_from_portfolio(&mut self, orders: &Vec<Order>) -> Result<&Self> {
-        orders.iter()
+    pub fn bulk_sell_from_portfolio(&mut self, final_orders: &Vec<FinalOrder>) -> Result<&Self> {
+        final_orders.iter()
             .for_each(|order| {
                 self
                     .sell_from_portfolio(
                         &order.sub_market_id, 
                         &order.choice_id, 
-                        order.amount as u64
+                        order.shares
                     ).unwrap();
             });
 
