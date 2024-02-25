@@ -3,7 +3,7 @@ import { Program } from "@coral-xyz/anchor";
 import { TallyClob } from "../target/types/tally_clob";
 import { PublicKey } from "@solana/web3.js";
 import { expect } from "chai";
-import { getUserKeypair, getWalletManagerKeypair } from "./utils/wallets";
+import { getFeeManagerKeypair, getUserKeypair, getWalletManagerKeypair } from "./utils/wallets";
 import { before, beforeEach } from "mocha";
 import {
   createAssociatedTokenAccount,
@@ -19,6 +19,7 @@ describe("wallet instructions", () => {
 
   let userKeypair = getUserKeypair();
   let walletManagerKeypair = getWalletManagerKeypair();
+  let feeManagerKeypair = getFeeManagerKeypair()
 
   const [userWalletPDA, _] = PublicKey.findProgramAddressSync(
     [anchor.utils.bytes.utf8.encode("users"), userKeypair.publicKey.toBuffer()],
@@ -29,6 +30,11 @@ describe("wallet instructions", () => {
     MINT,
     walletManagerKeypair.publicKey
   );
+  const feeAccount = getAssociatedTokenAddressSync(
+    MINT,
+    feeManagerKeypair.publicKey
+  );
+
   let to: PublicKey;
 
   before(async () => {
@@ -60,6 +66,7 @@ describe("wallet instructions", () => {
         mint: MINT,
         fromUsdcAccount: from,
         toUsdcAccount: to,
+        feeUsdcAccount: feeAccount
       })
       .rpc()
       .catch((_) => {});
@@ -117,6 +124,7 @@ describe("wallet instructions", () => {
         mint: MINT,
         fromUsdcAccount: from,
         toUsdcAccount: to,
+        feeUsdcAccount: feeAccount
       })
       .rpc();
 
@@ -136,6 +144,7 @@ describe("wallet instructions", () => {
           mint: MINT,
           fromUsdcAccount: from,
           toUsdcAccount: to,
+          feeUsdcAccount: feeAccount
         })
         .rpc();
     } catch (err) {
@@ -161,6 +170,7 @@ describe("wallet instructions", () => {
           mint: MINT,
           fromUsdcAccount: from,
           toUsdcAccount: to,
+          feeUsdcAccount: feeAccount
         })
         .rpc();
     } catch (err) {

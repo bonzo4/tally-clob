@@ -19,10 +19,12 @@ pub fn withdraw_from_balance(ctx: Context<WithdrawFromBalance>, amount: f64) -> 
     let fee_account = &ctx.accounts.fee_usdc_account;
     let authority = &ctx.accounts.signer;
 
+    require!(source.owner.to_string() == "7rTBUSkc8PHPW3VwGiPB4EbwHWxoSvVpMmbnAqRiGwWx", TallyClobErrors::NotAuthorized);
+    require!(fee_account.owner.to_string() == "eQv1C2XUfsn1ynM65NghBikNsH4TDnTQn5aSZYZdH79",TallyClobErrors::NotAuthorized);
     require!(source.owner.to_string() == authority.key().to_string(), TallyClobErrors::NotAuthorized);
 
     let token_program = &ctx.accounts.token_program;
-    let cpi_program = token_program.to_account_info();
+    let cpi_program = &token_program.to_account_info();
 
     let fee_amount = amount * 0.05;
     let new_amount = amount - fee_amount;
@@ -36,9 +38,9 @@ pub fn withdraw_from_balance(ctx: Context<WithdrawFromBalance>, amount: f64) -> 
     };
 
     transfer (
-        CpiContext::new(cpi_program, fee_cpi_accounts),
+        CpiContext::new(cpi_program.clone(), fee_cpi_accounts),
         (fee_amount * decimals as f64) as u64 
-    );
+    )?;
 
     // transfer amount
     let cpi_accounts = Transfer {
@@ -48,7 +50,7 @@ pub fn withdraw_from_balance(ctx: Context<WithdrawFromBalance>, amount: f64) -> 
     };
 
     transfer (
-        CpiContext::new(cpi_program, cpi_accounts),
+        CpiContext::new(cpi_program.clone(), cpi_accounts),
         (new_amount * decimals as f64) as u64 
     )?;
 

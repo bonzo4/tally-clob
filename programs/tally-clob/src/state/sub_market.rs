@@ -51,25 +51,31 @@ impl SubMarket {
     }
 
     pub fn get_buy_values_by_shares(&mut self, choice_id: &u64, shares_to_buy: u64) -> Result<BuyOrderValues> {
+        let market_pot = self.total_pot;
         Ok(self
             .get_choice(choice_id)?
-            .get_buy_order_values(self.total_pot, 0.0, shares_to_buy)?)
+            .get_buy_order_values(market_pot, 0.0, shares_to_buy)?)
     }
 
     pub fn get_buy_values_by_price(&mut self, choice_id: &u64, buy_price: f64) -> Result<BuyOrderValues> {
-        Ok(self.get_choice(choice_id)?
-        .get_buy_order_values(self.total_pot, buy_price, 0)?)
+        let market_pot = self.total_pot;
+        Ok(self
+            .get_choice(choice_id)?
+            .get_buy_order_values(market_pot, buy_price, 0)?)
     }
 
     pub fn get_sell_values_by_shares(&mut self, choice_id: &u64, shares_to_sell: u64) -> Result<SellOrderValues> {
+        let market_pot = self.total_pot;
         Ok(self
             .get_choice(choice_id)?
-            .get_sell_order_values(self.total_pot, 0.0, shares_to_sell)?)
+            .get_sell_order_values(market_pot, 0.0, shares_to_sell)?)
     }
 
     pub fn get_sell_values_by_price(&mut self, choice_id: &u64, sell_price: f64) -> Result<SellOrderValues> {
-        Ok(self.get_choice(choice_id)?
-        .get_sell_order_values(self.total_pot, sell_price, 0)?)
+        let market_pot = self.total_pot;
+        Ok(self
+            .get_choice(choice_id)?
+            .get_sell_order_values(market_pot, sell_price, 0)?)
     }
 
     pub fn reprice_choices(&mut self) -> Result<&mut Self> {

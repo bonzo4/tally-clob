@@ -50,9 +50,10 @@ impl ChoiceMarket {
         let mut price = self.price;
         let mut total_pot = self.total_pot;
 
+        msg!("price: {}", price);
+
         if shares_to_buy == 0 {
-            let fee_price = buy_price * 0.005;
-            while cumulative_price + price < buy_price - fee_price {
+            while cumulative_price + price < buy_price * 0.995 {
             
                 market_pot += price;
                 total_pot += price; 
@@ -61,9 +62,12 @@ impl ChoiceMarket {
                 cumulative_price += price;
     
                 if market_pot == 0.0 {price = total_pot / market_pot} else {price = 1.0}; 
+                msg!("price: {}", price)
             }
+
+            let fee_price = cumulative_price * 0.005;
             
-            return Ok(BuyOrderValues {buy_price, fee_price, shares_to_buy: cumulative_shares})
+            return Ok(BuyOrderValues {buy_price: cumulative_price, fee_price, shares_to_buy: cumulative_shares})
         } 
         if buy_price == 0.0 {
             while cumulative_shares < shares_to_buy {
@@ -74,6 +78,7 @@ impl ChoiceMarket {
                 cumulative_price += price;
     
                 if market_pot == 0.0 {price = total_pot / market_pot} else {price = 1.0}; 
+                msg!("price: {}", price)
             }
             let fee_price = cumulative_price * 0.005;
 
@@ -96,8 +101,7 @@ impl ChoiceMarket {
         let mut total_pot = self.total_pot;
 
         if shares_to_sell == 0 {
-            let fee_price = sell_price * 0.005;
-            while cumulative_price + price < sell_price - fee_price {
+            while cumulative_price + price < sell_price * 0.995 {
             
                 market_pot -= price;
                 total_pot -= price; 
@@ -106,9 +110,12 @@ impl ChoiceMarket {
                 cumulative_price += price;
     
                 if market_pot == 0.0 {price = total_pot / market_pot} else {price = 1.0}; 
+                msg!("price: {}", price)
             }
+
+            let fee_price = cumulative_price * 0.995;
             
-            return Ok(SellOrderValues {sell_price, fee_price, shares_to_sell: cumulative_shares})
+            return Ok(SellOrderValues {sell_price: cumulative_price, fee_price, shares_to_sell: cumulative_shares})
         }
         if sell_price == 0.0 {
             while cumulative_shares < shares_to_sell {
@@ -117,6 +124,9 @@ impl ChoiceMarket {
 
                 cumulative_shares += 1;
                 cumulative_price += price;
+
+                if market_pot == 0.0 {price = total_pot / market_pot} else {price = 1.0}; 
+                msg!("price: {}", price)
             }
 
             let fee_price = cumulative_price * 0.005;

@@ -26,13 +26,6 @@ pub struct FinalOrder {
     pub shares: u64
 }
 
-
-#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone, PartialEq, Eq)]
-pub enum OrderType {
-    Price,
-    Shares
-}
-
 impl Market {
     pub const MARKET_MAX_LENGTH: usize = 10;
 
@@ -66,15 +59,26 @@ impl Market {
     pub fn bulk_buy_values_by_price(
         &mut self,
         orders: &Vec<Order>,
-        order_type: OrderType,
         market_periods: &Vec<MarketStatus>
     ) -> Result<Vec<BuyOrderValues>> {
         let order_values = orders.iter()
-            .map(|order| self
-                .get_sub_market(&order.sub_market_id)
-                .unwrap()
-                .get_buy_values_by_price(&order.choice_id, order.amount)
-                .unwrap()
+            .enumerate()
+            .map(|(index, order)| {
+                let sub_market = self
+                    .get_sub_market(&order.sub_market_id)
+                    .unwrap();
+                if market_periods[index] == MarketStatus::FairLaunch {
+                    let share_price = self
+                        .get_sub_market_default_price(&order.sub_market_id).unwrap();
+                    let total_shares = order.amount  / share_price;
+                    return BuyOrderValues {shares_to_buy: total_shares as u64, buy_price: order.amount, fee_price: 0.0}
+                }
+                let order_values = sub_market
+                    .get_buy_values_by_price(&order.choice_id, order.amount)
+                    .unwrap();
+                    
+                order_values
+                }
             ).collect::<Vec<BuyOrderValues>>();
 
         Ok(order_values)
@@ -83,15 +87,30 @@ impl Market {
     pub fn bulk_buy_values_by_shares(
         &mut self,
         orders: &Vec<Order>,
-        order_type: OrderType,
         market_periods: &Vec<MarketStatus>
     ) -> Result<Vec<BuyOrderValues>> {
         let order_values = orders.iter()
-        .map(|order| self
-            .get_sub_market(&order.sub_market_id)
-            .unwrap()
-            .get_buy_values_by_shares(&order.choice_id, order.amount as u64)
-            .unwrap()
+            .enumerate()
+            .map(|(index, order)| {
+            let sub_market = self
+                .get_sub_market(&order.sub_market_id)
+                .unwrap();
+            if market_periods[index] == MarketStatus::FairLaunch {
+                let share_price = self
+                    .get_sub_market_default_price(&order.sub_market_id).unwrap();
+                let total_price = order.amount * share_price;
+                return BuyOrderValues {
+                    shares_to_buy: order.amount as u64, 
+                    buy_price: total_price, 
+                    fee_price: 0.0
+                }
+            }
+            let order_values = sub_market
+                .get_buy_values_by_shares(&order.choice_id, order.amount as u64)
+                .unwrap();
+                
+            order_values
+            }
         ).collect::<Vec<BuyOrderValues>>();
 
     Ok(order_values)
@@ -99,9 +118,7 @@ impl Market {
 
     pub fn bulk_sell_values_by_price(
         &mut self,
-        orders: &Vec<Order>,
-        order_type: OrderType,
-        market_periods: &Vec<MarketStatus>
+        orders: &Vec<Order>
     ) -> Result<Vec<SellOrderValues>> {
         let order_values = orders.iter()
             .map(|order| self
@@ -116,9 +133,7 @@ impl Market {
 
     pub fn bulk_sell_values_by_shares(
         &mut self,
-        orders: &Vec<Order>,
-        order_type: OrderType,
-        market_periods: &Vec<MarketStatus>
+        orders: &Vec<Order>
     ) -> Result<Vec<SellOrderValues>> {
         let order_values = orders.iter()
         .map(|order| self

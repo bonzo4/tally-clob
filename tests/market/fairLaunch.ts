@@ -7,6 +7,7 @@ import {
   getAssociatedTokenAccount,
   getAuthorizedUserKeypair,
   getClobManagerKeypair,
+  getFeeManagerKeypair,
   getUserKeypair,
   getWalletManagerKeypair,
   getWalletManagerTokenAccount,
@@ -18,6 +19,7 @@ import {
   getMarketPortfolioPDA,
   getUserPDA,
 } from "../utils/pdas";
+import { getAssociatedTokenAddressSync } from "@solana/spl-token";
 
 describe("fair launch", () => {
   const MINT = new PublicKey("5DUWZLh3zPKAAJKu7ftMJJrkBrKnq3zHPPmguzVkhSes");
@@ -26,8 +28,8 @@ describe("fair launch", () => {
   let marketKeypair = anchor.web3.Keypair.generate();
 
   let authorizedKeypair = getAuthorizedUserKeypair();
-  let clobManger = getClobManagerKeypair();
   let walletManagerKeypair = getWalletManagerKeypair();
+  let feeManagerKeypair = getFeeManagerKeypair()
   let userKeypair = getUserKeypair();
 
   const marketPDA = getMarketPDA(marketKeypair.publicKey, program);
@@ -38,6 +40,15 @@ describe("fair launch", () => {
   );
 
   const userPDA = getUserPDA(userKeypair.publicKey, program);
+
+  const from = getAssociatedTokenAddressSync(
+    MINT,
+    walletManagerKeypair.publicKey
+  );
+  const feeAccount = getAssociatedTokenAddressSync(
+    MINT,
+    feeManagerKeypair.publicKey
+  );
 
   const marketPortfolioPDA = getMarketPortfolioPDA(
     marketPDA,
@@ -102,6 +113,7 @@ describe("fair launch", () => {
             MINT,
             userKeypair.publicKey
           ),
+          feeUsdcAccount: feeAccount
         })
         .rpc();
     }
@@ -134,15 +146,18 @@ describe("fair launch", () => {
             amount: 1,
             subMarketId: new anchor.BN(2),
             choiceId: new anchor.BN(1),
-            requestedPrice: 0.5,
+            requestedPricePerShare: 0.5,
           }
         ])
         .signers([userKeypair])
         .accounts({
           signer: userKeypair.publicKey,
+          mint: MINT,
           user: userPDA,
           market: marketPDA,
           marketPortfolio: marketPortfolioPDA,
+          fromUsdcAccount: from,
+          feeUsdcAccount: feeAccount
         })
         .rpc();
     } catch (err) {
@@ -161,21 +176,24 @@ describe("fair launch", () => {
             amount: 1,
             subMarketId: new anchor.BN(2),
             choiceId: new anchor.BN(1),
-            requestedPrice: 0.5,
+            requestedPricePerShare: 0.5,
           },
           {
             amount: 1,
             subMarketId: new anchor.BN(2),
             choiceId: new anchor.BN(2),
-            requestedPrice: 0.5,
+            requestedPricePerShare: 0.5,
           }
         ])
-        .signers([clobManger])
+        .signers([walletManagerKeypair])
         .accounts({
-          signer: clobManger.publicKey,
+          signer: walletManagerKeypair.publicKey,
           user: userPDA,
+          mint: MINT,
           market: marketPDA,
           marketPortfolio: marketPortfolioPDA,
+          fromUsdcAccount: from,
+          feeUsdcAccount: feeAccount
         })
         .rpc();
     } catch (err) {
@@ -194,15 +212,18 @@ describe("fair launch", () => {
             amount: 1000,
             subMarketId: new anchor.BN(2),
             choiceId: new anchor.BN(1),
-            requestedPrice: 0.5,
+            requestedPricePerShare: 0.5,
           },
         ])
-        .signers([clobManger])
+        .signers([walletManagerKeypair])
         .accounts({
-          signer: clobManger.publicKey,
+          signer: walletManagerKeypair.publicKey,
           user: userPDA,
+          mint: MINT,
           market: marketPDA,
           marketPortfolio: marketPortfolioPDA,
+          fromUsdcAccount: from,
+          feeUsdcAccount: feeAccount
         })
         .rpc();
     } catch (err) {
@@ -221,15 +242,18 @@ describe("fair launch", () => {
             amount: 1,
             subMarketId: new anchor.BN(2),
             choiceId: new anchor.BN(1),
-            requestedPrice: 0.6,
+            requestedPricePerShare: 0.6,
           },
         ])
-        .signers([clobManger])
+        .signers([walletManagerKeypair])
         .accounts({
-          signer: clobManger.publicKey,
+          signer: walletManagerKeypair.publicKey,
           user: userPDA,
+          mint: MINT,
           market: marketPDA,
           marketPortfolio: marketPortfolioPDA,
+          fromUsdcAccount: from,
+          feeUsdcAccount: feeAccount
         })
         .rpc();
     } catch (err) {
@@ -248,15 +272,18 @@ describe("fair launch", () => {
             amount: 1,
             subMarketId: new anchor.BN(2),
             choiceId: new anchor.BN(1),
-            requestedPrice: 0.5,
+            requestedPricePerShare: 0.5,
           },
         ])
-        .signers([clobManger])
+        .signers([walletManagerKeypair])
         .accounts({
-          signer: clobManger.publicKey,
+          signer: walletManagerKeypair.publicKey,
           user: userPDA,
+          mint: MINT,
           market: marketPDA,
           marketPortfolio: marketPortfolioPDA,
+          fromUsdcAccount: from,
+          feeUsdcAccount: feeAccount
         })
         .rpc();
     } catch (err) {
@@ -275,15 +302,18 @@ describe("fair launch", () => {
             amount: 1,
             subMarketId: new anchor.BN(2),
             choiceId: new anchor.BN(1),
-            requestedPrice: 0.5,
+            requestedPricePerShare: 0.5,
           },
         ])
-        .signers([clobManger])
+        .signers([walletManagerKeypair])
         .accounts({
-          signer: clobManger.publicKey,
+          signer: walletManagerKeypair.publicKey,
           user: userPDA,
+          mint: MINT,
           market: marketPDA,
           marketPortfolio: marketPortfolioPDA,
+          fromUsdcAccount: from,
+          feeUsdcAccount: feeAccount
         })
         .rpc();
     } catch (err) {
@@ -301,21 +331,25 @@ describe("fair launch", () => {
           amount: 5,
           subMarketId: new anchor.BN(2),
           choiceId: new anchor.BN(1),
-          requestedPrice: 0.5,
+          requestedPricePerShare: 0.5,
         },
       ])
-      .signers([clobManger])
+      .signers([walletManagerKeypair])
       .accounts({
-        signer: clobManger.publicKey,
+        signer: walletManagerKeypair.publicKey,
         user: userPDA,
+        mint: MINT,
         market: marketPDA,
         marketPortfolio: marketPortfolioPDA,
+        fromUsdcAccount: from,
+        feeUsdcAccount: feeAccount
       })
       .rpc();
 
     const user = await program.account.user.fetch(userPDA);
     const market = await program.account.market.fetch(marketPDA);
     const marketPortfolio = await program.account.marketPortfolio.fetch(marketPortfolioPDA);
+
 
     expect(user.balance).to.equal(7.5)
     expect(market.subMarkets[0].totalPot).to.equal(2.5)
@@ -332,24 +366,24 @@ describe("fair launch", () => {
           amount: 2.5,
           subMarketId: new anchor.BN(2),
           choiceId: new anchor.BN(2),
-          requestedPrice: 0.5,
+          requestedPricePerShare: 0.5,
         },
       ])
-      .signers([clobManger])
+      .signers([walletManagerKeypair])
       .accounts({
-        signer: clobManger.publicKey,
+        signer: walletManagerKeypair.publicKey,
         user: userPDA,
+        mint: MINT,
         market: marketPDA,
         marketPortfolio: marketPortfolioPDA,
+        fromUsdcAccount: from,
+        feeUsdcAccount: feeAccount
       })
       .rpc().catch(err => console.log(err));
 
     const user = await program.account.user.fetch(userPDA);
-    // console.log(user)
     const market = await program.account.market.fetch(marketPDA);
-    // console.log(market.subMarkets[0].choices)
     const marketPortfolio = await program.account.marketPortfolio.fetch(marketPortfolioPDA);
-    // console.log(marketPortfolio.subMarketPortfolio[0].choicePortfolio)  
 
     expect(user.balance).to.equal(5)
     expect(market.subMarkets[0].totalPot).to.equal(5)
@@ -367,15 +401,18 @@ describe("fair launch", () => {
             amount: 1,
             subMarketId: new anchor.BN(2),
             choiceId: new anchor.BN(1),
-            requestedPrice: 0.5,
+            requestedPricePerShare: 0.5,
           },
         ])
-        .signers([clobManger])
+        .signers([walletManagerKeypair])
         .accounts({
-          signer: clobManger.publicKey,
+          signer: walletManagerKeypair.publicKey,
           user: userPDA,
           market: marketPDA,
+          mint: MINT,
           marketPortfolio: marketPortfolioPDA,
+          fromUsdcAccount: from,
+          feeUsdcAccount: feeAccount
         })
         .rpc();
     } catch (err) {
@@ -394,15 +431,18 @@ describe("fair launch", () => {
             amount: 1,
             subMarketId: new anchor.BN(2),
             choiceId: new anchor.BN(1),
-            requestedPrice: 0.5,
+            requestedPricePerShare: 0.5,
           },
         ])
-        .signers([clobManger])
+        .signers([walletManagerKeypair])
         .accounts({
-          signer: clobManger.publicKey,
+          signer: walletManagerKeypair.publicKey,
           user: userPDA,
           market: marketPDA,
+          mint: MINT,
           marketPortfolio: marketPortfolioPDA,
+          fromUsdcAccount: from,
+          feeUsdcAccount: feeAccount
         })
         .rpc();
     } catch (err) {

@@ -73,7 +73,7 @@ pub mod tally_clob {
         ctx: Context<BulkBuyByPrice>,
         orders: Vec<Order>
     ) -> Result<()> {
-        is_clob_manager(ctx.accounts.signer.key())?;
+        is_wallet_manager(ctx.accounts.signer.key())?;
         instructions::bulk_buy_by_price(ctx, orders)
     }
 
@@ -81,7 +81,7 @@ pub mod tally_clob {
         ctx: Context<BulkBuyByShares>,
         orders: Vec<Order>
     ) -> Result<()> {
-        is_clob_manager(ctx.accounts.signer.key())?;
+        is_wallet_manager(ctx.accounts.signer.key())?;
         instructions::bulk_buy_by_shares(ctx, orders)
     }
 
@@ -89,7 +89,7 @@ pub mod tally_clob {
         ctx: Context<BulkSellByPrice>,
         orders: Vec<Order>
     ) -> Result<()> {
-        is_clob_manager(ctx.accounts.signer.key())?;
+        is_wallet_manager(ctx.accounts.signer.key())?;
         instructions::bulk_sell_by_price(ctx, orders)
     }
 
@@ -97,7 +97,7 @@ pub mod tally_clob {
         ctx: Context<BulkSellByShares>,
         orders: Vec<Order>
     ) -> Result<()> {
-        is_clob_manager(ctx.accounts.signer.key())?;
+        is_wallet_manager(ctx.accounts.signer.key())?;
         instructions::bulk_sell_by_shares(ctx, orders)
     }
 

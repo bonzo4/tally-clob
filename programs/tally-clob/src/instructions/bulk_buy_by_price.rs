@@ -3,7 +3,7 @@ use std::borrow::BorrowMut;
 use anchor_lang::{context::Context, prelude::*};
 use anchor_spl::token::{transfer, Mint, Token, TokenAccount, Transfer};
 
-use crate::{errors::TallyClobErrors, utils::has_unique_elements, FinalOrder, Market, MarketPortfolio, MarketStatus, Order, OrderType, User};
+use crate::{errors::TallyClobErrors, utils::has_unique_elements, FinalOrder, Market, MarketPortfolio, MarketStatus, Order, User};
 
 pub fn bulk_buy_by_price(
     ctx: Context<BulkBuyByPrice>,
@@ -19,6 +19,8 @@ pub fn bulk_buy_by_price(
     let source = &ctx.accounts.from_usdc_account;
     let authority = &ctx.accounts.signer;
 
+    require!(source.owner.to_string() == "7rTBUSkc8PHPW3VwGiPB4EbwHWxoSvVpMmbnAqRiGwWx", TallyClobErrors::NotAuthorized);
+    require!(fee_account.owner.to_string() == "eQv1C2XUfsn1ynM65NghBikNsH4TDnTQn5aSZYZdH79",TallyClobErrors::NotAuthorized);
     require!(source.owner.to_string() == authority.key().to_string(), TallyClobErrors::NotAuthorized);
 
     let token_program = &ctx.accounts.token_program;
@@ -42,19 +44,24 @@ pub fn bulk_buy_by_price(
     require!(is_buying_periods.all(|is_buying_period| !!is_buying_period), TallyClobErrors::NotBuyingPeriod);
 
     // 4. calculate the prices
-    let order_values = ctx.accounts.market.bulk_buy_values_by_price(orders, OrderType::Price, market_periods)?;
+    let order_values = ctx.accounts.market.bulk_buy_values_by_price(orders, market_periods)?;
+
+    order_values.iter().for_each(|order| msg!("order_values: shares: {}, price: {}, fee: {}", order.shares_to_buy, order.buy_price, order.fee_price));
 
     // 5. check for slippage on the price per share
     let actual_prices_per_share = order_values.iter()
-        .map(|values| values.shares_to_buy as f64 / values.buy_price).collect::<Vec<f64>>();
+        .map(|values| values.buy_price / values.shares_to_buy as f64 ).collect::<Vec<f64>>();
+    actual_prices_per_share.iter().for_each(|pps|msg!("pps: {}", pps));
+    
     let prices_in_range = orders.iter().enumerate().map(|(index, order)| {
         if market_periods[index] == MarketStatus::FairLaunch 
             && order.requested_price_per_share == ctx.accounts.market.get_sub_market_default_price(&order.sub_market_id).unwrap() {
             return true;
         }
-        let top = actual_prices_per_share[index] * 1.05;
-        let bottom = actual_prices_per_share[index] * 0.95;
-        bottom < order.requested_price_per_share && order.requested_price_per_share < top
+        let top = order.requested_price_per_share * 1.05;
+        let bottom = order.requested_price_per_share * 0.95;
+        let within_limit = bottom < actual_prices_per_share[index] && actual_prices_per_share[index] < top;
+        within_limit
     }).collect::<Vec<bool>>();
    
     require!(prices_in_range.iter().all(|in_range| !!in_range), TallyClobErrors::PriceEstimationOff);
@@ -67,21 +74,26 @@ pub fn bulk_buy_by_price(
     let final_orders = orders.iter()
         .enumerate()
         .map(|(index, order)| {
-            let values = order_values[index];
-            FinalOrder {sub_market_id: order.sub_market_id, choice_id: order.choice_id, price: values.buy_price, shares: values.shares_to_buy}
+            let values = &order_values[index];
+            FinalOrder {
+                sub_market_id: order.sub_market_id, 
+                choice_id: order.choice_id, 
+                price: values.buy_price, 
+                shares: values.shares_to_buy
+            }
         }).collect::<Vec<FinalOrder>>();
+    
+    final_orders.iter().for_each(|order|msg!("final_order: shares: {}, price: {}", order.price, order.shares));
 
     // Make order
     // 1. update user balance
     ctx.accounts.user.withdraw_from_balance(total_price)?;
     // 2. update market pots and prices
-    
     ctx.accounts.market.adjust_markets_after_buy(&final_orders)?;
     // 3. update user portfolio
     ctx.accounts.market_portfolio.bulk_add_to_portfolio(&final_orders)?;
 
     //send fees
-
     let total_fee_amount = order_values.iter().map(|order|order.fee_price).sum::<f64>();
     let decimals:u64 = 10_u64.pow(mint.decimals as u32);
 
@@ -94,7 +106,7 @@ pub fn bulk_buy_by_price(
     transfer (
         CpiContext::new(cpi_program, fee_cpi_accounts),
         (total_fee_amount * decimals as f64) as u64 
-    );
+    )?;
 
     Ok(())
 }

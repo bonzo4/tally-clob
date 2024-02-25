@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 
-use crate::{errors::TallyClobErrors, vec_size, FinalOrder, Market, Order, SubMarketPortfolio, DISCRIMINATOR_SIZE, U8_SIZE};
+use crate::{errors::TallyClobErrors, vec_size, FinalOrder, Market, SubMarketPortfolio, DISCRIMINATOR_SIZE, U8_SIZE};
 
 #[account]
 pub struct MarketPortfolio {
@@ -14,15 +14,15 @@ impl MarketPortfolio {
     + U8_SIZE
     + vec_size(SubMarketPortfolio::SIZE, Market::MARKET_MAX_LENGTH);
 
-    pub fn check_portfolio_shares(&mut self, orders: &Vec<Order>) -> Result<&Self> {
-        for order in orders.iter() {
+    pub fn check_portfolio_shares(&mut self, final_orders: &Vec<FinalOrder>) -> Result<&Self> {
+        for order in final_orders.iter() {
             let portfolio_shares = self
                     .get_choice_shares(
                         &order.sub_market_id, 
                         &order.choice_id
                     ).unwrap();
 
-            require!(portfolio_shares >= order.amount as u64, TallyClobErrors::NotEnoughSharesToSell);
+            require!(portfolio_shares >= order.shares as u64, TallyClobErrors::NotEnoughSharesToSell);
         }
 
         Ok(self)
