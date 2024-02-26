@@ -355,7 +355,7 @@ describe("fair launch", () => {
     expect(market.subMarkets[0].totalPot).to.equal(2.5)
     expect(market.subMarkets[0].choices[0].totalPot).to.equal(2.5)
     expect(market.subMarkets[0].choices[0].shares.toNumber()).to.equal(5)
-    expect(market.subMarkets[0].choices[0].price).to.equal(1)
+    expect(market.subMarkets[0].choices[0].price).to.equal(0.99)
     expect(marketPortfolio.subMarketPortfolio[0].choicePortfolio[0].shares.toNumber()).to.equal(5)
   });
 

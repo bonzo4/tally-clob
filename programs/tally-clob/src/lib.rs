@@ -13,7 +13,7 @@ declare_id!("CPtwPtwjQhPbfZYsHiWskky7gRtBcRzFsh4HvsQ5tmXe");
 pub mod tally_clob {
     use crate::errors::TallyClobErrors;
 
-    use self::utils::{is_clob_manager, is_owner, is_wallet_manager};
+    use self::utils::{is_owner, is_wallet_manager};
 
     use super::*;
 
