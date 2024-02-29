@@ -1,12 +1,12 @@
 use std::borrow::BorrowMut;
 
-use anchor_lang::prelude::*;
+use anchor_lang::{context::Context, prelude::*};
 use anchor_spl::token::{transfer, Mint, Token, TokenAccount, Transfer};
 
 use crate::{errors::TallyClobErrors, utils::has_unique_elements, FinalOrder, Market, MarketPortfolio, MarketStatus, Order, User};
 
-pub fn bulk_buy_by_shares(
-    ctx: Context<BulkBuyByShares>,
+pub fn bulk_buy_by_price(
+    ctx: Context<BulkBuyByPrice>,
     mut orders: Vec<Order>
 ) -> Result<()> {
     let mint = &ctx.accounts.mint;
@@ -27,28 +27,26 @@ pub fn bulk_buy_by_shares(
     let cpi_program = token_program.to_account_info();
 
     let orders: &mut Vec<Order> = orders.borrow_mut();
-    
 
     // check orders
     // 1. check if there is less than 10 orders,
     require!(orders.len() <= ctx.accounts.market.sub_markets.len(), TallyClobErrors::BulkOrderTooBig);
-
+    
     // 2. check if there are any duplicate choice_ids
     let sub_market_ids = orders.iter().map(|order| order.sub_market_id).collect::<Vec<u64>>();
     require!(has_unique_elements(sub_market_ids), TallyClobErrors::SameSubMarket);
-
+    
     // 3. check if all the requested submarkets are in a buying period
-    let market_periods = ctx.accounts.market
+    let market_periods = &ctx.accounts.market
         .get_buying_periods(orders)?;
     let mut is_buying_periods = market_periods.iter()
         .map(|market_period| [MarketStatus::FairLaunch, MarketStatus::Trading].contains(market_period));
     require!(is_buying_periods.all(|is_buying_period| !!is_buying_period), TallyClobErrors::NotBuyingPeriod);
 
     // 4. calculate the prices
-    let order_values = ctx.accounts.market.bulk_buy_values_by_shares(orders, &market_periods)?;
+    let order_values = ctx.accounts.market.bulk_buy_values_by_price(orders, market_periods)?;
 
     order_values.iter().for_each(|order| msg!("order_values: shares: {}, price: {}, fee: {}", order.shares_to_buy, order.buy_price, order.fee_price));
-
 
     // 5. check for slippage on the price per share
     let actual_prices_per_share = order_values.iter()
@@ -69,29 +67,28 @@ pub fn bulk_buy_by_shares(
 
     // 7. Ensure all prices are within the expected range
     require!(prices_in_range.iter().all(|in_range| *in_range), TallyClobErrors::PriceEstimationOff);
-    
+
+
     // 6. check if user has enough balance
     let total_price = order_values.iter().map(|values|values.buy_price + values.fee_price).sum();
-
+    require!(ctx.accounts.user.balance >= total_price, TallyClobErrors::BalanceTooLow);
 
     // prep order
     let final_orders = orders.iter()
-       .enumerate()
-       .map(|(index, order)| {
-           let values = &order_values[index];
-           FinalOrder {
-            sub_market_id: 
-            order.sub_market_id, 
-            choice_id: order.choice_id, 
-            price: values.buy_price, 
-            shares: values.shares_to_buy
-        }
-       }).collect::<Vec<FinalOrder>>();
+        .enumerate()
+        .map(|(index, order)| {
+            let values = &order_values[index];
+            FinalOrder {
+                sub_market_id: order.sub_market_id, 
+                choice_id: order.choice_id, 
+                price: values.buy_price, 
+                shares: values.shares_to_buy
+            }
+        }).collect::<Vec<FinalOrder>>();
+    
+    final_orders.iter().for_each(|order|msg!("final_order: shares: {}, price: {}", order.price, order.shares));
 
-    final_orders.iter().for_each(|order|msg!("final_order: shares: {}, price: {}", order.shares, order.price));
-
-
-  // Make order
+    // Make order
     // 1. update user balance
     ctx.accounts.user.withdraw_from_balance(total_price)?;
     // 2. update market pots and prices
@@ -107,20 +104,17 @@ pub fn bulk_buy_by_shares(
         to: fee_account.to_account_info().clone(),
         authority: authority.to_account_info().clone()
     };
-
+    
     transfer (
         CpiContext::new(cpi_program, fee_cpi_accounts),
-        total_fee_amount as u64 
+        total_fee_amount
     )?;
 
     Ok(())
-
 }
 
-
-
 #[derive(Accounts)]
-pub struct BulkBuyByShares<'info> {
+pub struct FairLaunchOrder<'info> {
     #[account(mut)]
     pub signer: Signer<'info>,
     #[account(mut)]
@@ -136,10 +130,4 @@ pub struct BulkBuyByShares<'info> {
     )]
     pub market_portfolio: Account<'info, MarketPortfolio>,
     pub system_program: Program<'info, System>,
-    #[account(mut )]
-    pub from_usdc_account: Account<'info, TokenAccount>,
-    #[account(mut)]
-    pub fee_usdc_account: Account<'info, TokenAccount>,
-    pub mint: Account<'info, Mint>,
-    pub token_program: Program<'info, Token>,
 }

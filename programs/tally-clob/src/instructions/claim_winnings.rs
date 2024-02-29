@@ -24,9 +24,9 @@ pub fn claim_winnings(
     require!(!choice_market_portfolio.claimed, TallyClobErrors::AlreadyClaimed);
 
     let winnings_per_shares = ctx.accounts.market.get_sub_market(&sub_market_id)?.total_pot 
-    / ctx.accounts.market.get_sub_market(&sub_market_id)?.get_choice(&choice_id)?.shares as f64;
+    / ctx.accounts.market.get_sub_market(&sub_market_id)?.get_choice(&choice_id)?.shares;
 
-    let total_winnings = winnings_per_shares * choice_market_portfolio.shares as f64;
+    let total_winnings = winnings_per_shares * choice_market_portfolio.shares;
 
     // withdraw from shares
     choice_market_portfolio.withdraw_from_portfolio(choice_market_portfolio.shares)?;

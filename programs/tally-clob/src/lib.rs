@@ -7,7 +7,7 @@ pub mod errors;
 pub mod state;
 pub mod utils;
 
-declare_id!("CPtwPtwjQhPbfZYsHiWskky7gRtBcRzFsh4HvsQ5tmXe");
+declare_id!("B98rqLdQhCMUzRZiE8DSp55bx8JEfJbuUkw1Ln3fMrKQ");
 
 #[program]
 pub mod tally_clob {
@@ -30,14 +30,14 @@ pub mod tally_clob {
 
     pub fn init_market(
         ctx: Context<InitMarket>,
-        sub_markets: Vec<SubMarket>,
+        init_sub_markets: Vec<InitSubMarket>,
         market_key: Pubkey
     ) -> Result<()> {
         require!(ctx.accounts.authorized_user.authorized, TallyClobErrors::NotAuthorized);
 
         instructions::init_market(
             ctx,
-            sub_markets
+            init_sub_markets
         )
     }
 
@@ -53,7 +53,7 @@ pub mod tally_clob {
 
     pub fn add_to_balance(
         ctx: Context<AddToBalance>,
-        amount: f64
+        amount: u64
     ) -> Result<()> {
         is_wallet_manager(ctx.accounts.signer.key())?;
 
@@ -62,7 +62,7 @@ pub mod tally_clob {
 
     pub fn withdraw_from_balance(
         ctx: Context<WithdrawFromBalance>,
-        amount: f64
+        amount: u64
     ) -> Result<()> {
         is_wallet_manager(ctx.accounts.signer.key())?;
 
@@ -109,6 +109,16 @@ pub mod tally_clob {
         require!(ctx.accounts.authorized_user.authorized, TallyClobErrors::NotAuthorized);
 
         instructions::resolve_market(ctx, sub_market_id, choice_id)
+    }
+
+    pub fn start_trading(
+        ctx: Context<StartTrading>,
+        sub_market_id: u64,
+        choice_id: u64,
+    ) -> Result<()> {
+        require!(ctx.accounts.authorized_user.authorized, TallyClobErrors::NotAuthorized);
+
+        instructions::start_trading(ctx, sub_market_id)
     }
 
     pub fn claim_winnings(

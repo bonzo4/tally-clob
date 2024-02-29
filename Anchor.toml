@@ -5,7 +5,7 @@ seeds = false
 skip-lint = false
 
 [programs.devnet]
-tally_clob = "CPtwPtwjQhPbfZYsHiWskky7gRtBcRzFsh4HvsQ5tmXe"
+tally_clob = "B98rqLdQhCMUzRZiE8DSp55bx8JEfJbuUkw1Ln3fMrKQ"
 
 [registry]
 url = "https://api.apr.dev"

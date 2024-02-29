@@ -2,73 +2,81 @@ use std::ops::{AddAssign, SubAssign};
 
 use anchor_lang::prelude::*;
 
-use crate::{errors::TallyClobErrors, BOOL_SIZE, U64_SIZE};
+use crate::{errors::TallyClobErrors, sub_market, SubMarket, BOOL_SIZE, U64_SIZE};
 
-use super::{DISCRIMINATOR_SIZE, F64_SIZE};
+use super::DISCRIMINATOR_SIZE;
 
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone, PartialEq)]
 pub struct BuyOrderValues {
     pub shares_to_buy: u64,
-    pub buy_price: f64,
-    pub fee_price: f64
+    pub buy_price: u64,
+    pub fee_price: u64
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone, PartialEq)]
 pub struct SellOrderValues {
     pub shares_to_sell: u64,
-    pub sell_price: f64,
-    pub fee_price: f64
+    pub sell_price: u64,
+    pub fee_price: u64
 }
 
-#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
+#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone, PartialEq)]
 pub struct ChoiceMarket {
     pub id: u64,
-    pub total_pot: f64,
-    pub shares: u64,
-    pub price: f64,
+    pub pot_shares: u64,
+    pub minted_shares: u64,
     pub winning_choice: bool
 }
+
 
 impl ChoiceMarket {
 
     pub const SIZE: usize = DISCRIMINATOR_SIZE
-    + U64_SIZE
-    + U64_SIZE
-    + (F64_SIZE * 2)
+    + (U64_SIZE * 3)
     + BOOL_SIZE;
 
+    pub fn new(choice_id: &u64, choice_count: u8) -> Self {
+        ChoiceMarket {
+            id: *choice_id,
+            pot_shares: 0,
+            minted_shares: 0,
+            winning_choice: false
+        }
+    }
 
     pub fn get_buy_order_values(
         &mut self, 
-        mut market_pot: f64, 
-        buy_price: f64, 
-        shares_to_buy: u64
+        k: u64,
+        buy_price: Option<u64>, 
+        shares_to_buy: Option<u64>
     ) -> Result<BuyOrderValues> {
-
+    
+        require!(!(buy_price.is_none() && shares_to_buy.is_none()), TallyClobErrors::NotAValidOrder);
+    
         let mut cumulative_shares = 0;
-        let mut cumulative_price  = 0.0;
-        let mut price = self.price;
+        let mut cumulative_price = 0;
         let mut choice_pot = self.total_pot;
+        let mut price = self.get_price(market_pot, choice_pot)?;
 
-
-        if shares_to_buy == 0 {
-            while cumulative_price + price < buy_price * 0.995 {
+        let buy_price_threshold = buy_price.map(|bp| bp * 995 / 1000); 
+    
+        if let Some(buy_price_threshold) = buy_price_threshold {
             
+            while cumulative_price + price < buy_price_threshold {
                 market_pot += price;
-                choice_pot += price; 
+                choice_pot += price;
                 
                 cumulative_shares += 1;
                 cumulative_price += price;
     
-                price = self.get_new_price(market_pot, choice_pot)?;
-                // msg!("price: {}", price)
+                price = self.get_price(choice_pot, market_pot)?;
             }
-
-            let fee_price = cumulative_price * 0.005;
-            
-            return Ok(BuyOrderValues {buy_price: cumulative_price, fee_price, shares_to_buy: cumulative_shares})
+            let fee_price = cumulative_price / 200; // 0.005 as fixed-point
+    
+            return Ok(BuyOrderValues { buy_price: cumulative_price, fee_price, shares_to_buy: cumulative_shares });
         } 
-        if buy_price == 0.0 {
+    
+        if let Some(shares_to_buy) = shares_to_buy {
             while cumulative_shares < shares_to_buy {
                 market_pot += price;
                 choice_pot += price; 
@@ -76,86 +84,81 @@ impl ChoiceMarket {
                 cumulative_shares += 1;
                 cumulative_price += price;
     
-                price = self.get_new_price(market_pot, choice_pot)?;
-                // msg!("price: {}", price)
+                price = self.get_price(choice_pot, market_pot)?;
             }
-            let fee_price = cumulative_price * 0.005;
-
-            return Ok(BuyOrderValues{buy_price: cumulative_price, fee_price, shares_to_buy})
-        } 
-
+            let fee_price = cumulative_price / 200; // 0.005 as fixed-point
+    
+            return Ok(BuyOrderValues { buy_price: cumulative_price, fee_price, shares_to_buy });
+        }
+    
         err!(TallyClobErrors::NotAValidOrder)
     }
+    
 
     pub fn get_sell_order_values(
         &mut self, 
-        mut market_pot: f64, 
-        sell_price: f64, 
-        shares_to_sell: u64
+        mut market_pot: u64, 
+        sell_price: Option<u64>, 
+        shares_to_sell: Option<u64>
     ) -> Result<SellOrderValues> {
-
+        require!(!(sell_price.is_none() && shares_to_sell.is_none()), TallyClobErrors::NotAValidOrder);
+    
         let mut cumulative_shares = 0;
-        let mut cumulative_price  = 0.0;
-        let mut price = self.price;
+        let mut cumulative_price = 0;
         let mut choice_pot = self.total_pot;
-
-        if shares_to_sell == 0 {
-            while cumulative_price + price < sell_price * 0.995 {
-            
+        let mut price = self.get_price(market_pot, choice_pot)?;
+    
+        let sell_price_threshold = sell_price.map(|sp| sp * 1005 / 1000);
+    
+        if let Some(sell_price_threshold) = sell_price_threshold {
+            while cumulative_price + price < sell_price_threshold {
                 market_pot -= price;
-                choice_pot -= price; 
-
+                choice_pot -= price;
+                
                 cumulative_shares += 1;
                 cumulative_price += price;
     
-                price = self.get_new_price(market_pot, choice_pot)?;
-                // msg!("price: {}", price)
+                price = self.get_price(choice_pot, market_pot)?;
             }
-
-            let fee_price = cumulative_price * 0.005;
-            
-            return Ok(SellOrderValues {sell_price: cumulative_price - fee_price, fee_price, shares_to_sell: cumulative_shares})
-        }
-        if sell_price == 0.0 {
+            let fee_price = cumulative_price / 200; // 0.005 as fixed-point
+    
+            return Ok(SellOrderValues { sell_price: cumulative_price, fee_price, shares_to_sell: cumulative_shares });
+        } 
+    
+        if let Some(shares_to_sell) = shares_to_sell {
             while cumulative_shares < shares_to_sell {
                 market_pot -= price;
                 choice_pot -= price; 
-
+                
                 cumulative_shares += 1;
                 cumulative_price += price;
-
-                price = self.get_new_price(market_pot, choice_pot)?;
-                // msg!("price: {}", price)
+    
+                price = self.get_price(choice_pot, market_pot)?;
             }
-
-            let fee_price = cumulative_price * 0.005;
-            return Ok(SellOrderValues{sell_price: cumulative_price - fee_price, fee_price, shares_to_sell})
+            let fee_price = cumulative_price / 200; // 0.005 as fixed-point
+    
+            return Ok(SellOrderValues { sell_price: cumulative_price, fee_price, shares_to_sell });
         }
-
+    
         err!(TallyClobErrors::NotAValidOrder)
-        
-    }
-
-    pub fn get_new_price(&mut self, market_pot: f64, choice_pot: f64) -> Result<f64> {
-        if market_pot == 0.0 {return Ok(0.99)}
-        let new_price = choice_pot / market_pot;
-        if new_price > 0.99 {return Ok(0.99)}
-        if new_price < 0.01 {return Ok(0.01)}
-        
-        Ok(new_price)
-    }
-   
-
-    pub fn reprice(&mut self, market_pot: f64) -> Result<&mut Self> {
-        let new_price = self.get_new_price(market_pot, self.total_pot)?;
-        self.price = new_price;
-        
-        Ok(self)
     }
     
-    pub fn add_to_pot(&mut self, amount: f64) -> Result<&mut Self> {
+    
 
-        require!(amount > 0.0, TallyClobErrors::AmountToAddTooLow);
+    pub fn get_price(&mut self, market_pot: u64, choice_pot: u64) -> Result<u64> {
+        if market_pot == 0 {
+            return Ok(1_000_000); // 1 USDC in fixed-point representation
+        }
+    
+        // Calculate new price using fixed-point arithmetic without additional scaling
+        let price = choice_pot / market_pot;
+    
+        Ok(price)
+    }
+    
+    pub fn add_to_pot(&mut self, amount: u64) -> Result<&mut Self> {
+
+        require!(amount > 0, TallyClobErrors::AmountToAddTooLow);
 
         self
             .total_pot
@@ -174,8 +177,8 @@ impl ChoiceMarket {
         Ok(self)
     }
 
-    pub fn withdraw_from_pot(&mut self, amount: f64) -> Result<&mut Self>  {
-        require!(amount > 0.0, TallyClobErrors::AmountToWithdrawTooLow);
+    pub fn withdraw_from_pot(&mut self, amount: u64) -> Result<&mut Self>  {
+        require!(amount > 0, TallyClobErrors::AmountToWithdrawTooLow);
         require!(amount <= self.total_pot, TallyClobErrors::AmountToWithdrawTooGreat);
 
         self

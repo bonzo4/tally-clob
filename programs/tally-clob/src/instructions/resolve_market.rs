@@ -23,19 +23,9 @@ pub fn resolve_market(
 pub struct ResolveMarket<'info> {
     #[account(mut)]
     pub signer: Signer<'info>,
-    #[account(
-        mut,
-        seeds = [b"authorized_users", signer.key().as_ref()],
-        bump = authorized_user.bump
-    )]
+    #[account(mut)]
     pub authorized_user: Account<'info, AuthorizedUser>,
-    #[account(
-        init_if_needed,
-        payer = signer,
-        space = Market::SIZE, 
-        seeds = [b"markets".as_ref(), market.key().as_ref()], 
-        bump
-    )]
+    #[account(mut)]
     pub market: Account<'info, Market>,
     pub system_program: Program<'info, System>,
 }

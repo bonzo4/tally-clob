@@ -2,7 +2,7 @@ use std::ops::{AddAssign, SubAssign};
 
 use anchor_lang::prelude::*;
 
-use crate::{errors::TallyClobErrors, BOOL_SIZE, DISCRIMINATOR_SIZE, F64_SIZE, U64_SIZE};
+use crate::{errors::TallyClobErrors, BOOL_SIZE, DISCRIMINATOR_SIZE,  U64_SIZE};
 
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
 pub struct ChoicePortfolio {
@@ -14,8 +14,7 @@ pub struct ChoicePortfolio {
 impl ChoicePortfolio {
     pub const SIZE: usize = DISCRIMINATOR_SIZE
     + U64_SIZE
-    + F64_SIZE
-    + F64_SIZE
+    + U64_SIZE
     + BOOL_SIZE;
 
     pub fn new(

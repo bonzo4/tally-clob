@@ -3,13 +3,13 @@ use anchor_spl::token::{transfer, Mint, Token, TokenAccount, Transfer};
 
 use crate::{errors::TallyClobErrors, User};
 
-pub fn withdraw_from_balance(ctx: Context<WithdrawFromBalance>, amount: f64) -> Result<()> {
+pub fn withdraw_from_balance(ctx: Context<WithdrawFromBalance>, amount: u64) -> Result<()> {
     let mint = &ctx.accounts.mint;
     let mint_key = mint.key().to_string();
     let usdc_key = "5DUWZLh3zPKAAJKu7ftMJJrkBrKnq3zHPPmguzVkhSes".to_string(); // not actually usdc address for development
     require!(mint_key == usdc_key, TallyClobErrors::NotUSDC);
     
-    require!(amount > 0.0, TallyClobErrors::AmountToWithdrawTooLow);
+    require!(amount > 0, TallyClobErrors::AmountToWithdrawTooLow);
     require!(amount <= ctx.accounts.user.balance, TallyClobErrors::AmountToWithdrawTooGreat);
     
     ctx.accounts.user.withdraw_from_balance(amount)?;
@@ -26,33 +26,32 @@ pub fn withdraw_from_balance(ctx: Context<WithdrawFromBalance>, amount: f64) -> 
     let token_program = &ctx.accounts.token_program;
     let cpi_program = &token_program.to_account_info();
 
-    let fee_amount = amount * 0.05;
+    let fee_amount = amount / 20;
     let new_amount = amount - fee_amount;
-    let decimals:u64 = 10_u64.pow(mint.decimals as u32);
 
-    // transfer fees
-    let fee_cpi_accounts = Transfer {
-        from: source.to_account_info().clone(),
-        to: fee_account.to_account_info().clone(),
-        authority: authority.to_account_info().clone()
-    };
+    // // transfer fees
+    // let fee_cpi_accounts = Transfer {
+    //     from: source.to_account_info().clone(),
+    //     to: fee_account.to_account_info().clone(),
+    //     authority: authority.to_account_info().clone()
+    // };
 
-    transfer (
-        CpiContext::new(cpi_program.clone(), fee_cpi_accounts),
-        (fee_amount * decimals as f64) as u64 
-    )?;
+    // transfer (
+    //     CpiContext::new(cpi_program.clone(), fee_cpi_accounts),
+    //     fee_amount
+    // )?;
 
-    // transfer amount
-    let cpi_accounts = Transfer {
-        from: source.to_account_info().clone(),
-        to: destination.to_account_info().clone(),
-        authority: authority.to_account_info().clone()
-    };
+    // // transfer amount
+    // let cpi_accounts = Transfer {
+    //     from: source.to_account_info().clone(),
+    //     to: destination.to_account_info().clone(),
+    //     authority: authority.to_account_info().clone()
+    // };
 
-    transfer (
-        CpiContext::new(cpi_program.clone(), cpi_accounts),
-        (new_amount * decimals as f64) as u64 
-    )?;
+    // transfer (
+    //     CpiContext::new(cpi_program.clone(), cpi_accounts),
+    //     new_amount
+    // )?;
 
     Ok(())
 }
