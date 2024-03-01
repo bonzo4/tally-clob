@@ -3,7 +3,7 @@ use std::borrow::BorrowMut;
 use anchor_lang::{context::Context, prelude::*};
 use anchor_spl::token::{transfer, Mint, Token, TokenAccount, Transfer};
 
-use crate::{errors::TallyClobErrors, utils::has_unique_elements, FinalOrder, Market, MarketPortfolio, MarketStatus, Order, User};
+use crate::{errors::TallyClobErrors, utils::has_unique_elements, BulkBuyByPrice, FinalOrder, Market, MarketPortfolio, MarketStatus, Order, User};
 
 pub fn bulk_buy_by_price(
     ctx: Context<BulkBuyByPrice>,

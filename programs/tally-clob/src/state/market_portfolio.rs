@@ -1,18 +1,18 @@
 use anchor_lang::prelude::*;
 
-use crate::{errors::TallyClobErrors, vec_size, FinalOrder, Market, SubMarketPortfolio, DISCRIMINATOR_SIZE, U8_SIZE};
+use crate::{errors::TallyClobErrors, vec_size, FinalOrder, SubMarketPortfolio, DISCRIMINATOR_SIZE, U64_SIZE, U8_SIZE};
 
 #[account]
 pub struct MarketPortfolio {
     pub bump: u8,
-    pub sub_market_portfolio: Vec<SubMarketPortfolio>,
+    pub sub_market_portfolio: [u64; 2],
 }
 
 impl MarketPortfolio {
 
     pub const SIZE: usize = DISCRIMINATOR_SIZE
     + U8_SIZE
-    + vec_size(SubMarketPortfolio::SIZE, Market::MARKET_MAX_LENGTH);
+    + vec_size(U64_SIZE, 2);
 
     pub fn check_portfolio_shares(&mut self, final_orders: &Vec<FinalOrder>) -> Result<&Self> {
         for order in final_orders.iter() {

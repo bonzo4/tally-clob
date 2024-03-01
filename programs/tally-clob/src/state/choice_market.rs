@@ -35,7 +35,7 @@ impl ChoiceMarket {
     + (U64_SIZE * 3)
     + BOOL_SIZE;
 
-    pub fn new(choice_id: &u64, choice_count: u8) -> Self {
+    pub fn new(choice_id: &u64) -> Self {
         ChoiceMarket {
             id: *choice_id,
             pot_shares: 0,
