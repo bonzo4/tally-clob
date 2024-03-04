@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 
-use crate::{errors::TallyClobErrors, utils::current_timestamp, AuthorizedUser, Market};
+use crate::{utils::current_timestamp, AuthorizedUser, Market};
 
 pub fn start_trading(
     ctx: Context<StartTrading>,

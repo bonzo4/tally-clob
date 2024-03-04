@@ -49,5 +49,7 @@ pub enum TallyClobErrors {
     #[msg("Can only withdraw usdc.")]
     NotUSDC,
     #[msg("Not a valid order")]
-    NotAValidOrder
+    NotAValidOrder,
+    #[msg("Shares not equal")]
+    SharesNotEqual
 }

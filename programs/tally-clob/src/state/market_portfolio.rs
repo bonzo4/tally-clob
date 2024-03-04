@@ -1,18 +1,18 @@
 use anchor_lang::prelude::*;
 
-use crate::{errors::TallyClobErrors, vec_size, FinalOrder, SubMarketPortfolio, DISCRIMINATOR_SIZE, U64_SIZE, U8_SIZE};
+use crate::{errors::TallyClobErrors, vec_size, FinalOrder, SubMarketPortfolio, DISCRIMINATOR_SIZE, U8_SIZE};
 
 #[account]
 pub struct MarketPortfolio {
     pub bump: u8,
-    pub sub_market_portfolio: [u64; 2],
+    pub sub_market_portfolio: Vec<SubMarketPortfolio>,
 }
 
 impl MarketPortfolio {
 
     pub const SIZE: usize = DISCRIMINATOR_SIZE
     + U8_SIZE
-    + vec_size(U64_SIZE, 2);
+    + vec_size(SubMarketPortfolio::SIZE, 2);
 
     pub fn check_portfolio_shares(&mut self, final_orders: &Vec<FinalOrder>) -> Result<&Self> {
         for order in final_orders.iter() {
@@ -22,7 +22,7 @@ impl MarketPortfolio {
                         &order.choice_id
                     ).unwrap();
 
-            require!(portfolio_shares >= order.shares as u64, TallyClobErrors::NotEnoughSharesToSell);
+            require!(portfolio_shares >= order.shares, TallyClobErrors::NotEnoughSharesToSell);
         }
 
         Ok(self)
@@ -55,7 +55,7 @@ impl MarketPortfolio {
         Ok(self)
     }
 
-    pub fn add_to_portfolio(&mut self, sub_market_id: &u64, choice_id: &u64, shares: u64) -> Result<&Self> {
+    pub fn add_to_portfolio(&mut self, sub_market_id: &u64, choice_id: &u64, shares: f64) -> Result<&Self> {
         match self
             .get_sub_market_portfolio(sub_market_id) {
                 Ok (sub_market_portfolio) => {
@@ -73,7 +73,7 @@ impl MarketPortfolio {
         Ok(self)
     }
     
-    pub fn sell_from_portfolio(&mut self, sub_market_id: &u64, choice_id: &u64, shares: u64) -> Result<&Self> {
+    pub fn sell_from_portfolio(&mut self, sub_market_id: &u64, choice_id: &u64, shares: f64) -> Result<&Self> {
         self
             .get_sub_market_portfolio(sub_market_id)?
             .sell_from_portfolio(choice_id, shares)?;
@@ -81,7 +81,7 @@ impl MarketPortfolio {
         Ok(self)
     }
 
-    pub fn get_choice_shares(&mut self, sub_market_id: &u64, choice_id: &u64) -> Result<u64> {
+    pub fn get_choice_shares(&mut self, sub_market_id: &u64, choice_id: &u64) -> Result<f64> {
         let choice_shares = self
             .get_sub_market_portfolio(sub_market_id)?
             .get_choice_shares(choice_id)?;

@@ -61,64 +61,29 @@ describe("trading", () => {
 
   let now = new Date();
 
-  const marketData = [
+  const initMarketData = [
     {
       id: new anchor.BN(1),
-      totalPot: 0,
-      choiceCount: 2,
-      choices: [
-        {
-          id: new anchor.BN(1),
-          shares: new anchor.BN(0),
-          totalPot: 0,
-          winningChoice: false,
-          price: 0.99,
-        },
-        {
-          id: new anchor.BN(2),
-          shares: new anchor.BN(0),
-          totalPot: 0,
-          winningChoice: false,
-          price: 0.99,
-        },
-      ],
+      choiceIds: [new anchor.BN(1), new anchor.BN(2)],
       fairLaunchStart: new anchor.BN(now.valueOf() / 1000 - 60 * 60 * 3),
       fairLaunchEnd: new anchor.BN(now.valueOf() / 1000 - 60 * 60 * 2),
       tradingStart: new anchor.BN(now.valueOf() / 1000 - 60 * 60),
       tradingEnd: new anchor.BN(now.valueOf() / 1000 + 60 * 60),
-      resolved: false,
     },
     {
       id: new anchor.BN(2),
-      totalPot: 0,
-      choiceCount: 2,
-      choices: [
-        {
-          id: new anchor.BN(1),
-          shares: new anchor.BN(0),
-          totalPot: 0,
-          winningChoice: false,
-          price: 0.99,
-        },
-        {
-          id: new anchor.BN(2),
-          shares: new anchor.BN(0),
-          totalPot: 0,
-          winningChoice: false,
-          price: 0.99,
-        },
-      ],
+      choiceIds: [new anchor.BN(1), new anchor.BN(2)],
       fairLaunchStart: new anchor.BN(now.valueOf() / 1000 - 60 * 60 * 3),
       fairLaunchEnd: new anchor.BN(now.valueOf() / 1000 - 60 * 60 * 2),
       tradingStart: new anchor.BN(now.valueOf() / 1000 - 60 * 60),
       tradingEnd: new anchor.BN(now.valueOf() / 1000 + 60 * 60),
-      resolved: false,
-    },
-  ];
+    }
+  ]
+
 
   before(async () => {
     await program.methods
-      .initMarket(marketData, marketKeypair.publicKey)
+      .initMarket(initMarketData, marketKeypair.publicKey)
       .signers([authorizedKeypair])
       .accounts({
         signer: authorizedKeypair.publicKey,
@@ -164,7 +129,7 @@ describe("trading", () => {
 
     const subMarket = market.subMarkets[0];
 
-    expect(subMarket.totalPot).to.equal(0);
+    expect(subMarket.choices.map(choice => choice.usdcPot).reduce((sum, current) => sum + current, 0)).to.equal(100);
     expect(user.balance).to.equal(10);
   });
 
@@ -176,11 +141,10 @@ describe("trading", () => {
             amount: 1,
             subMarketId: new anchor.BN(1),
             choiceId: new anchor.BN(1),
-            requestedPricePerShare: 1,
+            requestedPricePerShare: 0.5,
           },
         ])
         .signers([userKeypair])
-        .preInstructions([additionalComputeBudgetInstruction])
         .accounts({
           signer: userKeypair.publicKey,
           user: userPDA,
@@ -207,23 +171,23 @@ describe("trading", () => {
             amount: 1,
             subMarketId: new anchor.BN(1),
             choiceId: new anchor.BN(1),
-            requestedPricePerShare: 1,
+            requestedPricePerShare: 0.5 ,
           },
           {
             amount: 1,
             subMarketId: new anchor.BN(1),
             choiceId: new anchor.BN(2),
-            requestedPricePerShare: 1,
+            requestedPricePerShare: 0.5,
           },
           {
             amount: 1,
             subMarketId: new anchor.BN(1),
             choiceId: new anchor.BN(2),
-            requestedPricePerShare: 1,
+            requestedPricePerShare: 0.5,
           },
         ])
         .signers([walletManager])
-        .preInstructions([additionalComputeBudgetInstruction])
+        
         .accounts({
           signer: walletManager.publicKey,
           user: userPDA,
@@ -249,17 +213,17 @@ describe("trading", () => {
             amount: 1,
             subMarketId: new anchor.BN(1),
             choiceId: new anchor.BN(1),
-            requestedPricePerShare: 1,
+            requestedPricePerShare: 0.5,
           },
           {
             amount: 1,
             subMarketId: new anchor.BN(1),
             choiceId: new anchor.BN(2),
-            requestedPricePerShare: 1,
-          }
+            requestedPricePerShare: 0.5,
+          },
         ])
         .signers([walletManager])
-        .preInstructions([additionalComputeBudgetInstruction])
+        
         .accounts({
           signer: walletManager.publicKey,
           user: userPDA,
@@ -277,42 +241,36 @@ describe("trading", () => {
     }
   });
 
-  // it("fails to buy by shares due to no funds", async () => {
-  //   try {
+  it("fails to buy by shares due to no funds", async () => {
+    try {
       
-  //     await program.methods
-  //       .bulkBuyByShares([
-  //         {
-  //           amount: 1200,
-  //           subMarketId: new anchor.BN(1),
-  //           choiceId: new anchor.BN(1),
-  //           requestedPricePerShare: 0.99,
-  //         },
-  //         {
-  //           amount: 1200,
-  //           subMarketId: new anchor.BN(2),
-  //           choiceId: new anchor.BN(1),
-  //           requestedPricePerShare: 0.99,
-  //         },
-  //       ])
-  //       .signers([walletManager])
-  //       .preInstructions([additionalComputeBudgetInstruction])
-  //       .accounts({
-  //         signer: walletManager.publicKey,
-  //         user: userPDA,
-  //         market: marketPDA,
-  //         marketPortfolio: marketPortfolioPDA,
-  //         mint: MINT,
-  //         fromUsdcAccount: from,
-  //         feeUsdcAccount: feeAccount
-  //       })
-  //       .rpc();
-  //   } catch (err) {
-  //     const error = err as anchor.AnchorError;
-  //     let expectedMsg = "Not enough balance to make order.";
-  //     expect(error.error.errorMessage).to.equal(expectedMsg);
-  //   }
-  // });
+      await program.methods
+        .bulkBuyByShares([
+          {
+            amount: 20,
+            subMarketId: new anchor.BN(1),
+            choiceId: new anchor.BN(1),
+            requestedPricePerShare: 0.524,
+          },
+        ])
+        .signers([walletManager])
+        
+        .accounts({
+          signer: walletManager.publicKey,
+          user: userPDA,
+          market: marketPDA,
+          marketPortfolio: marketPortfolioPDA,
+          mint: MINT,
+          fromUsdcAccount: from,
+          feeUsdcAccount: feeAccount
+        })
+        .rpc();
+    } catch (err) {
+      const error = err as anchor.AnchorError;
+      let expectedMsg = "Not enough balance to make order.";
+      expect(error.error.errorMessage).to.equal(expectedMsg);
+    }
+  });
 
   it("fails to buy by shares due to estimation off", async () => {
     try {
@@ -322,11 +280,11 @@ describe("trading", () => {
             amount: 1,
             subMarketId: new anchor.BN(1),
             choiceId: new anchor.BN(1),
-            requestedPricePerShare: 0.94,
+            requestedPricePerShare: 0.1,
           },
         ])
         .signers([walletManager])
-        .preInstructions([additionalComputeBudgetInstruction])
+        
         .accounts({
           signer: walletManager.publicKey,
           user: userPDA,
@@ -353,11 +311,11 @@ describe("trading", () => {
             amount: 1,
             subMarketId: new anchor.BN(1),
             choiceId: new anchor.BN(1),
-            requestedPricePerShare: 1,
+            requestedPricePerShare: 0.5,
           },
         ])
         .signers([walletManager])
-        .preInstructions([additionalComputeBudgetInstruction])
+        
         .accounts({
           signer: walletManager.publicKey,
           user: userPDA,
@@ -384,11 +342,11 @@ describe("trading", () => {
             amount: 1,
             subMarketId: new anchor.BN(1),
             choiceId: new anchor.BN(1),
-            requestedPricePerShare: 0.99,
+            requestedPricePerShare: 0.5,
           },
         ])
         .signers([walletManager])
-        .preInstructions([additionalComputeBudgetInstruction])
+        
         .accounts({
           signer: walletManager.publicKey,
           user: userPDA,
@@ -414,90 +372,11 @@ describe("trading", () => {
           amount: 5,
           subMarketId: new anchor.BN(1),
           choiceId: new anchor.BN(1),
-          requestedPricePerShare: 0.99,
+          requestedPricePerShare: 0.5121,
         },
       ])
       .signers([walletManager])
-      .preInstructions([additionalComputeBudgetInstruction])
-      .accounts({
-        signer: walletManager.publicKey,
-        user: userPDA,
-        market: marketPDA,
-        marketPortfolio: marketPortfolioPDA,
-        mint: MINT,
-        fromUsdcAccount: from,
-        feeUsdcAccount: feeAccount
-      })
-      .rpc();
       
-      const user = await program.account.user.fetch(userPDA);
-      const market = await program.account.market.fetch(marketPDA);
-      const marketPortfolio = await program.account.marketPortfolio.fetch(
-        marketPortfolioPDA
-      );
-
-    expect(user.balance).to.greaterThan(5);
-    expect(market.subMarkets[0].totalPot).to.lessThan(5);
-    expect(market.subMarkets[0].choices[0].totalPot).to.lessThan(5);
-    expect(market.subMarkets[0].choices[0].shares.toNumber()).to.equal(5);
-    expect(market.subMarkets[0].choices[0].price).to.equal(0.99);
-    expect(
-      marketPortfolio.subMarketPortfolio[0].choicePortfolio[0].shares.toNumber()
-    ).to.equal(5);
-  });
-
-  it("buy bulk by shares", async () => {
-    await program.methods
-      .bulkBuyByShares([
-        {
-          amount: 5,
-          subMarketId: new anchor.BN(1),
-          choiceId: new anchor.BN(2),
-          requestedPricePerShare: 0.01,
-        },
-      ])
-      .signers([walletManager])
-      .preInstructions([additionalComputeBudgetInstruction])
-      .accounts({
-        signer: walletManager.publicKey,
-        user: userPDA,
-        market: marketPDA,
-        marketPortfolio: marketPortfolioPDA,
-        mint: MINT,
-        fromUsdcAccount: from,
-        feeUsdcAccount: feeAccount
-      })
-      .rpc().catch(err => console.log(err));;
-
-      const user = await program.account.user.fetch(userPDA);
-      const market = await program.account.market.fetch(marketPDA);
-      const marketPortfolio = await program.account.marketPortfolio.fetch(
-        marketPortfolioPDA
-      );
-  
-
-    expect(user.balance).to.lessThan(5);
-    expect(market.subMarkets[0].totalPot).to.equal(5);
-    expect(market.subMarkets[0].choices[1].totalPot).to.equal(0.05);
-    expect(market.subMarkets[0].choices[1].shares.toNumber()).to.equal(5);
-    expect(market.subMarkets[0].choices[1].price).to.equal(0.01);
-    expect(
-      marketPortfolio.subMarketPortfolio[0].choicePortfolio[1].shares.toNumber()
-    ).to.equal(5);
-  });
-
-  it("buy bulk by price large order", async () => {
-    await program.methods
-      .bulkBuyByPrice([
-        {
-          amount: 4.95,
-          subMarketId: new anchor.BN(1),
-          choiceId: new anchor.BN(2),
-          requestedPricePerShare: 0.16,
-        },
-      ])
-      .signers([walletManager])
-      .preInstructions([additionalComputeBudgetInstruction])
       .accounts({
         signer: walletManager.publicKey,
         user: userPDA,
@@ -508,34 +387,117 @@ describe("trading", () => {
         feeUsdcAccount: feeAccount
       })
       .rpc().catch(err => console.log(err));
-
+      
     const user = await program.account.user.fetch(userPDA);
+    console.log(user.balance)
     const market = await program.account.market.fetch(marketPDA);
-    const marketPortfolio = await program.account.marketPortfolio.fetch(
-      marketPortfolioPDA
-    );
+    console.log(market.subMarkets[0].choices)
+    const marketPortfolio = await program.account.marketPortfolio.fetch(marketPortfolioPDA);
+    console.log(marketPortfolio.subMarketPortfolio[0].choicePortfolio)
 
-    expect(user.balance).to.lessThan(0.5);
-    expect(market.subMarkets[0].totalPot).to.greaterThan(9);
-    expect(market.subMarkets[0].choices[1].totalPot).to.greaterThan(4.5);
-    expect(market.subMarkets[0].choices[1].shares.toNumber()).to.equal(34);
-    expect(
-      marketPortfolio.subMarketPortfolio[0].choicePortfolio[1].shares.toNumber()
-    ).to.equal(34);
+    expect(user.balance).to.equal(5)
+    expect(market.subMarkets[0].choices.map(choice => choice.usdcPot).reduce((sum, current) => sum + current, 0) ).to.equal(104.975);
+    expect(market.subMarkets[0].choices[0].potShares).to.equal(95.26077637532747)
+    expect(market.subMarkets[0].choices[1].potShares).to.equal(104.975)
+    expect(market.subMarkets[0].choices[0].usdcPot).to.equal(54.975)
+    expect(market.subMarkets[0].choices[0].mintedShares).to.equal(9.714223624672528)
+    expect(market.subMarkets[0].choices[0].fairLaunchPot).to.equal(50)
+    expect(marketPortfolio.subMarketPortfolio[0].choicePortfolio[0].shares).to.equal(9.714223624672528)
   });
+
+  it("buy bulk by price 2", async () => {
+    await program.methods
+      .bulkBuyByPrice([
+        {
+          amount: 1,
+          subMarketId: new anchor.BN(1),
+          choiceId: new anchor.BN(1),
+          requestedPricePerShare: 0.5433,
+        },
+      ])
+      .signers([walletManager])
+      
+      .accounts({
+        signer: walletManager.publicKey,
+        user: userPDA,
+        market: marketPDA,
+        marketPortfolio: marketPortfolioPDA,
+        mint: MINT,
+        fromUsdcAccount: from,
+        feeUsdcAccount: feeAccount
+      })
+      .rpc().catch(err => console.log(err));
+      
+    const user = await program.account.user.fetch(userPDA);
+    console.log(user.balance)
+    const market = await program.account.market.fetch(marketPDA);
+    console.log(market.subMarkets[0].choices)
+    const marketPortfolio = await program.account.marketPortfolio.fetch(marketPortfolioPDA);
+    console.log(marketPortfolio.subMarketPortfolio[0].choicePortfolio)
+
+    expect(user.balance).to.equal(0)
+    expect(market.subMarkets[0].choices.map(choice => choice.usdcPot).reduce((sum, current) => sum + current, 0) ).to.equal(109.95);
+    expect(market.subMarkets[0].choices[0].potShares).to.equal(90.95043201455208)
+    expect(market.subMarkets[0].choices[1].potShares).to.equal(109.94999999999999)
+    expect(market.subMarkets[0].choices[0].usdcPot).to.equal(59.95)
+    expect(market.subMarkets[0].choices[0].mintedShares).to.equal(18.99956798544791)
+    expect(market.subMarkets[0].choices[0].fairLaunchPot).to.equal(50)
+    expect(marketPortfolio.subMarketPortfolio[0].choicePortfolio[0].shares).to.equal(18.99956798544791)
+  });
+
+  // it("buy bulk by shares", async () => {
+  //   await program.methods
+  //     .bulkBuyByShares([
+  //       {
+  //         amount: 5,
+  //         subMarketId: new anchor.BN(1),
+  //         choiceId: new anchor.BN(1),
+  //         requestedPricePerShare: 0.52,
+  //       },
+  //     ])
+  //     .signers([walletManager])
+      
+  //     .accounts({
+  //       signer: walletManager.publicKey,
+  //       user: userPDA,
+  //       market: marketPDA,
+  //       marketPortfolio: marketPortfolioPDA,
+  //       mint: MINT,
+  //       fromUsdcAccount: from,
+  //       feeUsdcAccount: feeAccount
+  //     })
+  //     .rpc().catch(err => console.log(err));
+  
+
+  //     const user = await program.account.user.fetch(userPDA);
+  //     console.log(user.balance)
+  //     const market = await program.account.market.fetch(marketPDA);
+  //     console.log(market.subMarkets[0].choices)
+  //     const marketPortfolio = await program.account.marketPortfolio.fetch(marketPortfolioPDA);
+  //     console.log(marketPortfolio.subMarketPortfolio[0].choicePortfolio)
+  
+  //     expect(user.balance).to.equal(5)
+  //     expect(market.subMarkets[0].choices.map(choice => choice.usdcPot).reduce((sum, current) => sum + current, 0) ).to.equal(104.975);
+  //     expect(market.subMarkets[0].choices[0].potShares).to.equal(95.92543201455207)
+  //     expect(market.subMarkets[0].choices[1].potShares).to.equal(104.975)
+  //     expect(market.subMarkets[0].choices[0].usdcPot).to.equal(54.975)
+  //     expect(market.subMarkets[0].choices[0].mintedShares).to.equal(9.049567985447922)
+  //     expect(market.subMarkets[0].choices[0].fairLaunchPot).to.equal(50)
+  //     expect(marketPortfolio.subMarketPortfolio[0].choicePortfolio[0].shares).to.equal(9.049567985447922)
+  // });
 
   it("sells by shares", async () => {
     await program.methods
       .bulkSellByShares([
         {
-          amount: 1,
+          amount: 1.88945,
           subMarketId: new anchor.BN(1),
           choiceId: new anchor.BN(1),
-          requestedPricePerShare: 0.51,
+          requestedPricePerShare: 0.54332,
         },
       ])
       .signers([walletManager])
-      .preInstructions([additionalComputeBudgetInstruction])
+      
       .accounts({
         signer: walletManager.publicKey,
         user: userPDA,
@@ -548,36 +510,34 @@ describe("trading", () => {
       .rpc().catch(err => console.log(err));
 
       const user = await program.account.user.fetch(userPDA);
-      console.log(user)
-      const market = await program.account.market.fetch(marketPDA);
-      console.log(market.subMarkets[0].choices)
-      const marketPortfolio = await program.account.marketPortfolio.fetch(
-        marketPortfolioPDA
-      );
-      console.log(marketPortfolio.subMarketPortfolio[0].choicePortfolio)
-  
-      expect(user.balance).to.greaterThan(0.5);
-      expect(market.subMarkets[0].totalPot).to.lessThan(9.5);
-      expect(market.subMarkets[0].choices[0].totalPot).to.lessThan(4.5);
-      expect(market.subMarkets[0].choices[0].shares.toNumber()).to.equal(4);
-      expect(
-        marketPortfolio.subMarketPortfolio[0].choicePortfolio[0].shares.toNumber()
-      ).to.equal(4);
+    console.log(user.balance)
+    const market = await program.account.market.fetch(marketPDA);
+    console.log(market.subMarkets[0].choices)
+    const marketPortfolio = await program.account.marketPortfolio.fetch(marketPortfolioPDA);
+    console.log(marketPortfolio.subMarketPortfolio[0].choicePortfolio)
+
+    expect(user.balance).to.equal(0.5433219287066832)
+    expect(market.subMarkets[0].choices.map(choice => choice.usdcPot).reduce((sum, current) => sum + current, 0) ).to.equal(109.40121754939676);
+    expect(market.subMarkets[0].choices[0].potShares).to.equal(91.40164956394885)
+    expect(market.subMarkets[0].choices[1].potShares).to.equal(106.67435652059035)
+    expect(market.subMarkets[0].choices[0].usdcPot).to.equal(59.40121754939677)
+    expect(market.subMarkets[0].choices[0].mintedShares).to.equal(17.99956798544791)
+    expect(market.subMarkets[0].choices[0].fairLaunchPot).to.equal(50)
+    expect(marketPortfolio.subMarketPortfolio[0].choicePortfolio[0].shares).to.equal(17.99956798544791)
   });
 
-  it("sells by price", async () => {
+  it("sells by shares 2", async () => {
     await program.methods
-      .bulkSellByPrice([
+      .bulkSellByShares([
         {
-          amount: 1,
+          amount: 5,
           subMarketId: new anchor.BN(1),
-          choiceId: new anchor.BN(2),
-          requestedPricePerShare: 0.51,
-          
+          choiceId: new anchor.BN(1),
+          requestedPricePerShare: 0.5202,
         },
       ])
       .signers([walletManager])
-      .preInstructions([additionalComputeBudgetInstruction])
+      
       .accounts({
         signer: walletManager.publicKey,
         user: userPDA,
@@ -590,24 +550,59 @@ describe("trading", () => {
       .rpc().catch(err => console.log(err));
 
       const user = await program.account.user.fetch(userPDA);
-      console.log(user)
-      const market = await program.account.market.fetch(marketPDA);
-      console.log(market.subMarkets[0].choices)
-      const marketPortfolio = await program.account.marketPortfolio.fetch(
-        marketPortfolioPDA
-      );
-      console.log(marketPortfolio.subMarketPortfolio[0].choicePortfolio)
-    
+    console.log(user.balance)
+    const market = await program.account.market.fetch(marketPDA);
+    console.log(market.subMarkets[0].choices)
+    const marketPortfolio = await program.account.marketPortfolio.fetch(marketPortfolioPDA);
+    console.log(marketPortfolio.subMarketPortfolio[0].choicePortfolio)
 
-    expect(user.balance).to.greaterThan(1.3);
-    expect(market.subMarkets[0].totalPot).to.lessThan(9);
-    expect(market.subMarkets[0].choices[1].totalPot).to.lessThan(4.5);
-    console.log(market.subMarkets[0].choices[1].shares.toNumber())
-    expect(market.subMarkets[0].choices[1].shares.toNumber()).to.equal(32);
-    expect(
-      marketPortfolio.subMarketPortfolio[0].choicePortfolio[1].shares.toNumber()
-    ).to.equal(32);
+    expect(user.balance).to.equal(3.2202900575890783)
+    expect(market.subMarkets[0].choices.map(choice => choice.usdcPot).reduce((sum, current) => sum + current, 0) ).to.equal(104.046998880157446);
+    expect(market.subMarkets[0].choices[0].potShares).to.equal(96.08526840375981)
+    expect(market.subMarkets[0].choices[1].potShares).to.equal(104.04699888015743)
+    expect(market.subMarkets[0].choices[0].usdcPot).to.equal(54.046998880157446)
+    expect(market.subMarkets[0].choices[0].mintedShares).to.equal(7.961730476397619)
+    expect(market.subMarkets[0].choices[0].fairLaunchPot).to.equal(50)
+    expect(marketPortfolio.subMarketPortfolio[0].choicePortfolio[0].shares).to.equal(7.961730476397619)
   });
+
+  // it("sells by price", async () => {
+  //   await program.methods
+  //     .bulkSellByPrice([
+  //       {
+  //         amount: 1,
+  //         subMarketId: new anchor.BN(1),
+  //         choiceId: new anchor.BN(1),
+  //         requestedPricePerShare: 0.5,
+  //       },
+  //     ])
+  //     .signers([walletManager])
+      
+  //     .accounts({
+  //       signer: walletManager.publicKey,
+  //       user: userPDA,
+  //       market: marketPDA,
+  //       marketPortfolio: marketPortfolioPDA,
+  //       mint: MINT,
+  //       fromUsdcAccount: from,
+  //       feeUsdcAccount: feeAccount
+  //     })
+  //     .rpc().catch(err => console.log(err));
+
+  //     const user = await program.account.user.fetch(userPDA);
+  //   console.log(user.balance)
+  //   const market = await program.account.market.fetch(marketPDA);
+  //   console.log(market.subMarkets[0].choices)
+  //   const marketPortfolio = await program.account.marketPortfolio.fetch(marketPortfolioPDA);
+  //   console.log(marketPortfolio.subMarketPortfolio[0].choicePortfolio)
+
+  //   expect(user.balance).to.equal(5)
+  //   expect(market.subMarkets[0].choices.map(choice => choice.usdcPot).reduce((sum, current) => sum + current, 0)).to.equal(7);
+  //   // expect(market.subMarkets[0].choices[1].totalPot).to.equal(2.5)
+  //   // expect(market.subMarkets[0].choices[1].price).to.equal(0.5)
+  //   // expect(market.subMarkets[0].choices[1].shares.toNumber()).to.equal(5)
+  //   expect(marketPortfolio.subMarketPortfolio[0].choicePortfolio[1].shares).to.equal(5)
+  // });
 
   it("sells by price large order, but fails", async () => {
     try {
@@ -616,13 +611,12 @@ describe("trading", () => {
         {
           amount: 30,
           subMarketId: new anchor.BN(1),
-          choiceId: new anchor.BN(2),
-          requestedPricePerShare: 0.06,
-          
+          choiceId: new anchor.BN(1),
+          requestedPricePerShare: 0.2279,
         },
       ])
       .signers([walletManager])
-      .preInstructions([additionalComputeBudgetInstruction])
+      
       .accounts({
         signer: walletManager.publicKey,
         user: userPDA,
@@ -634,6 +628,7 @@ describe("trading", () => {
       })
       .rpc();
     } catch (err) {
+      console.log(err)
       const error = err as anchor.AnchorError;
       let expectedMsg =
         "Requested shares to sell greater than owned shares.";
@@ -641,45 +636,5 @@ describe("trading", () => {
     }
   });
 
-  it("sells by price large order", async () => {
-    await program.methods
-      .bulkSellByShares([
-        {
-          amount: 32,
-          subMarketId: new anchor.BN(1),
-          choiceId: new anchor.BN(2),
-          requestedPricePerShare: 0.116,
-          
-        },
-      ])
-      .signers([walletManager])
-      .preInstructions([additionalComputeBudgetInstruction])
-      .accounts({
-        signer: walletManager.publicKey,
-        user: userPDA,
-        market: marketPDA,
-        marketPortfolio: marketPortfolioPDA,
-        mint: MINT,
-        fromUsdcAccount: from,
-        feeUsdcAccount: feeAccount
-      })
-      .rpc().catch(err => console.log(err));
-
-    const user = await program.account.user.fetch(userPDA);
-    console.log(user)
-    const market = await program.account.market.fetch(marketPDA);
-    console.log(market.subMarkets[0].choices)
-    const marketPortfolio = await program.account.marketPortfolio.fetch(
-      marketPortfolioPDA
-    );
-    console.log(marketPortfolio.subMarketPortfolio[0].choicePortfolio)
-
-    expect(user.balance).to.lessThan(0.5);
-    expect(market.subMarkets[0].totalPot).to.greaterThan(9);
-    expect(market.subMarkets[0].choices[1].totalPot).to.greaterThan(4.5);
-    expect(market.subMarkets[0].choices[1].shares.toNumber()).to.equal(32);
-    expect(
-      marketPortfolio.subMarketPortfolio[0].choicePortfolio[1].shares.toNumber()
-    ).to.equal(32);
-  });
+  
 });

@@ -1,16 +1,12 @@
-use std::ops::{AddAssign, SubAssign};
-
 use anchor_lang::prelude::*;
-use solana_program::sysvar::fees;
 
-use crate::{errors::TallyClobErrors, utils::{clock, get_buy_price, get_buy_quadratic_roots, get_sell_price}, BuyOrderValues, SellOrderValues};
+use crate::{errors::TallyClobErrors, utils::{clock, get_buy_price, get_sell_price}, BuyOrderValues, FinalOrder, SellOrderValues, F64_SIZE};
 
-use super::{vec_size, ChoiceMarket, DISCRIMINATOR_SIZE, U64_SIZE, I64_SIZE, U8_SIZE ,BOOL_SIZE};
+use super::{vec_size, ChoiceMarket, DISCRIMINATOR_SIZE, U64_SIZE, I64_SIZE ,BOOL_SIZE};
 
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
 pub struct InitSubMarket {
     pub id: u64,
-    pub choice_count: u8,
     pub choice_ids: Vec<u64>,
     pub fair_launch_start: i64,
     pub fair_launch_end: i64,
@@ -21,10 +17,8 @@ pub struct InitSubMarket {
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
 pub struct SubMarket {
     pub id: u64,
-    pub total_pot: u64,
-    pub invariant: u64,
-    pub choice_count: u8,
-    pub choices: [ChoiceMarket; 2],
+    pub invariant: f64,
+    pub choices: Vec<ChoiceMarket>,
     pub fair_launch_start: i64,
     pub fair_launch_end: i64,
     pub trading_start: i64,
@@ -33,12 +27,10 @@ pub struct SubMarket {
 }
 
 impl SubMarket {
-    pub const CHOICE_MAX_LENGTH: usize = 5;
 
     pub const SIZE: usize = DISCRIMINATOR_SIZE
         + U64_SIZE // id
-        + U64_SIZE // total_pot
-        + U8_SIZE // choice_count
+        + F64_SIZE // invaraint
         + vec_size(ChoiceMarket::SIZE, 2) // choices
         + (I64_SIZE * 4) // timestamps
         + BOOL_SIZE; //resolved
@@ -51,13 +43,8 @@ impl SubMarket {
             .collect::<Vec<ChoiceMarket>>();
         SubMarket {
             id: init_sub_market.id,
-            total_pot: 0,
-            invariant: 0,
-            choice_count: init_sub_market.choice_count,
-            choices: [
-                ChoiceMarket::new(&init_sub_market.choice_ids[0]), 
-                ChoiceMarket::new(&init_sub_market.choice_ids[1])
-                    ],
+            invariant: 100.0 * 100.0,
+            choices,
             fair_launch_start: init_sub_market.fair_launch_start,
             fair_launch_end: init_sub_market.fair_launch_end,
             trading_start: init_sub_market.trading_start,
@@ -67,6 +54,7 @@ impl SubMarket {
     }
 
     pub fn get_market_period(&self) -> Result<MarketStatus> {
+        if self.resolved {return Ok(MarketStatus::Closed)}
         let now = clock::current_timestamp();
         if now < self.fair_launch_start {return Ok(MarketStatus::Initializing)};
         // require!(now > self.fair_launch_start, TallyClobErrors::MarketIntializing);
@@ -82,51 +70,63 @@ impl SubMarket {
         Ok(MarketStatus::Closed)
     }
 
-    pub fn fair_launch_order(&mut self, choice_id: &u64, buy_price: u64) -> Result<BuyOrderValues> {
-        
-    }
-
-    pub fn get_buy_values_by_price(&mut self, choice_id: &u64, buy_price: u64) -> Result<BuyOrderValues> {
-
-        let fee_price = buy_price / 20;
-
-        let new_choices = self.choices
-            .iter()
-            .map(|choice|ChoiceMarket {
-                id: choice.id, 
-                pot_shares: choice.pot_shares + buy_price - fee_price,
-                minted_shares: choice.minted_shares,    
-                winning_choice: choice.winning_choice
-            })
-            .collect::<Vec<ChoiceMarket>>();
-
-        let choice = match new_choices.binary_search_by_key(choice_id, |choice_market| choice_market.id) {
+    pub fn calculate_shares_to_buy(&mut self, mut choices: Vec<ChoiceMarket>, choice_id: &u64, price: f64,) -> Result<f64> {
+        let choice = match choices.binary_search_by_key(choice_id, |choice_market| choice_market.id) {
             Ok(index) => Ok(&mut self.choices[index]),
             Err(_) => err!(TallyClobErrors::ChoiceNotFound),
         }?;
+        
+        let losing_choices = choices.iter_mut()
+            .filter(|choice| &choice.id != choice_id)
+            .collect::<Vec<&mut ChoiceMarket>>();
 
-        let total_pot_shares = new_choices.iter()
-            .map(|choice|choice.pot_shares)
-            .sum::<u64>();
-        let old_pot_shares = choice.pot_shares;
-        let new_pot_shares = self.invariant / (total_pot_shares - choice.pot_shares);
-        let shares_to_buy = old_pot_shares - new_pot_shares;
+        
+        let old_pot_shares = choice.pot_shares + price;
+        let invariant = self.invariant;
+        let new_pot_shares = invariant / losing_choices[0].pot_shares;
+        msg!(&old_pot_shares.to_string());
+        msg!(&new_pot_shares.to_string());
+        Ok(old_pot_shares - new_pot_shares)
+    }
+
+    pub fn get_buy_values_by_price(&mut self, choice_id: &u64, buy_price: f64) -> Result<BuyOrderValues> {
+
+        let fee_price = buy_price * 0.005;
+        let new_buy_price = buy_price - fee_price;
+
+        // yes: 104.975, no: 104.975
+        let new_choices = self.choices
+            .iter()
+            .map(|choice|ChoiceMarket {
+                pot_shares: choice.pot_shares + new_buy_price,
+                ..choice.clone()
+            })
+            .collect::<Vec<ChoiceMarket>>();
+
+        let shares_to_buy = self.calculate_shares_to_buy(new_choices, choice_id, new_buy_price)?;
 
         Ok(BuyOrderValues {
             fee_price,
-            buy_price,
+            buy_price: new_buy_price,
             shares_to_buy
         })
     }
 
-    pub fn get_buy_values_by_shares(&mut self, choice_id: &u64, shares_to_buy: u64) -> Result<BuyOrderValues> {
+    pub fn get_buy_values_by_shares(&self, choice_id: &u64, shares_to_buy: f64) -> Result<BuyOrderValues> {
         let pot_shares = self.choices
             .iter()
-            .map(|choice|{if choice.id == *choice_id {choice.pot_shares - shares_to_buy} else {choice.pot_shares}})
-            .collect::<Vec<u64>>();
+            .map(|choice|{
+                if choice.id == *choice_id {
+                    choice.pot_shares - shares_to_buy
+                } else {
+                    choice.pot_shares
+                }
+            })
+            .collect::<Vec<f64>>();
+
 
         let buy_price = get_buy_price(pot_shares, self.invariant)?;
-        let fee_price = buy_price / 20;
+        let fee_price = buy_price * 0.005; 
 
         Ok(BuyOrderValues{
             shares_to_buy,
@@ -135,146 +135,125 @@ impl SubMarket {
         })
     }
 
-    pub fn get_sell_values_by_price(&mut self, choice_id: &u64, sell_price: u64) -> Result<SellOrderValues> {
-        let fee_price = sell_price / 20;
-
-        let new_choices = self.choices
-            .iter()
-            .map(|choice|ChoiceMarket {
-                id: choice.id, 
-                pot_shares: choice.pot_shares - sell_price - fee_price,
-                minted_shares: choice.minted_shares,    
-                winning_choice: choice.winning_choice
-            })
-            .collect::<Vec<ChoiceMarket>>();
-
-        let choice = match new_choices.binary_search_by_key(choice_id, |choice_market| choice_market.id) {
+    pub fn calculate_shares_to_sell(&mut self, choices: Vec<ChoiceMarket>, choice_id: &u64) -> Result<f64> {
+        let choice = match choices.binary_search_by_key(choice_id, |choice_market| choice_market.id) {
             Ok(index) => Ok(&mut self.choices[index]),
             Err(_) => err!(TallyClobErrors::ChoiceNotFound),
         }?;
 
-        let total_pot_shares = self.choices.iter()
+        let total_pot_shares = choices.iter()
             .map(|choice|choice.pot_shares)
-            .sum::<u64>();
+            .sum::<f64>();
         let old_pot_shares = choice.pot_shares;
-        let new_pot_shares = self.invariant / (total_pot_shares - choice.pot_shares);
-        let shares_to_buy = old_pot_shares - new_pot_shares;
+        let invariant = self.invariant;
+        let new_pot_shares = invariant / (total_pot_shares  - choice.pot_shares);
+        Ok(new_pot_shares - old_pot_shares)
+     }
 
-    }
+    pub fn get_sell_values_by_price(&mut self, choice_id: &u64, sell_price: f64) -> Result<SellOrderValues> {
+        let fee_price = sell_price * 0.005;
 
-    pub fn get_sell_values_by_shares(&mut self, choice_id: &u64, shares_to_sell: u64) -> Result<SellOrderValues> {
-        let pot_shares = self.choices
+        let new_choices = self.choices
             .iter()
-            .map(|choice|{if choice.id == *choice_id {choice.pot_shares + shares_to_sell} else {choice.pot_shares}})
-            .collect::<Vec<u64>>();
+            .map(|choice|ChoiceMarket {
+                pot_shares: choice.pot_shares - sell_price,
+                ..choice.clone()
+            })
+            .collect::<Vec<ChoiceMarket>>();
 
-        let sell_price = get_sell_price(pot_shares, self.invariant);
-        let fee_price = sell_price / 20;
+        let shares_to_sell = self.calculate_shares_to_sell(new_choices, choice_id)?;
 
         Ok(SellOrderValues {
             shares_to_sell,
-            sell_price,
+            sell_price: sell_price - fee_price,
+            fee_price
+        })
+
+    }
+
+    pub fn get_sell_values_by_shares(&self, choice_id: &u64, shares_to_sell: f64) -> Result<SellOrderValues> {
+        let pot_shares = self.choices
+            .iter()
+            .map(|choice|{if choice.id == *choice_id {choice.pot_shares + shares_to_sell} else {choice.pot_shares}})
+            .collect::<Vec<f64>>();
+
+        let sell_price = get_sell_price(pot_shares, self.invariant)?;
+        msg!(&sell_price.to_string());
+        let fee_price = sell_price * 0.005;
+
+        // if sell_price < 5.0 {
+        //     let difference = 5.0 - sell_price;
+        //     let reduction_factor = 0.1 * difference;
+        //     sell_price = sell_price * (1.0 - reduction_factor);
+        // }
+
+        Ok(SellOrderValues {
+            shares_to_sell,
+            sell_price: sell_price - fee_price,
             fee_price
         })
     }
 
-    // pub fn withdraw_collateral(&mut self, choice_id: &u64, shares_to_buy: u64) -> Result<u64> {
-    //     let choice = self.get_choice(choice_id)?;
-    //     choice.pot_shares.add_assign(shares_to_buy);
+
+    pub fn adjust_markets_after_buy(&mut self, final_order: &FinalOrder) -> Result<()> {
+        
+        let new_choices = self.choices
+            .iter()
+            .map(| choice|{
+                msg!(&choice.pot_shares.to_string());
+                ChoiceMarket {
+                pot_shares: choice.pot_shares + final_order.price,
+                ..choice.clone()
+                }
+            }
+            )
+            .collect::<Vec<ChoiceMarket>>();
+
+        let shares_to_buy = self.calculate_shares_to_buy(new_choices, &final_order.choice_id, final_order.price)?;
+        msg!(&shares_to_buy.to_string());
+
+        require!(shares_to_buy == final_order.shares, TallyClobErrors::SharesNotEqual);
         
 
-    // }
+        self.choices
+            .iter_mut()
+            .for_each(|choice|{
+                choice.pot_shares += final_order.price;
+            });
 
+        self.get_choice(&final_order.choice_id)?.usdc_pot += final_order.price;
+        self.get_choice(&final_order.choice_id)?.pot_shares -= shares_to_buy;
+        self.get_choice(&final_order.choice_id)?.minted_shares += shares_to_buy;
 
-    // pub fn get_buy_values_by_shares(&mut self, choice_id: &u64, shares_to_buy: u64) -> Result<BuyOrderValues> {
-    //     let market_pot = self.total_pot;
-    //     Ok(self
-    //         .get_choice(choice_id)?
-    //         .get_buy_order_values(market_pot, None, Some(shares_to_buy))?)
-    // }
-
-    // pub fn get_buy_values_by_price(&mut self, choice_id: &u64, buy_price: u64) -> Result<BuyOrderValues> {
-    //     let market_pot = self.total_pot;
-    //     Ok(self
-    //         .get_choice(choice_id)?
-    //         .get_buy_order_values(market_pot, Some(buy_price), None)?)
-    // }
-
-    // pub fn get_sell_values_by_shares(&mut self, choice_id: &u64, shares_to_sell: u64) -> Result<SellOrderValues> {
-    //     let market_pot = self.total_pot;
-    //     Ok(self
-    //         .get_choice(choice_id)?
-    //         .get_sell_order_values(market_pot, None, Some(shares_to_sell))?)
-    // }
-
-    // pub fn get_sell_values_by_price(&mut self, choice_id: &u64, sell_price: u64) -> Result<SellOrderValues> {
-    //     let market_pot = self.total_pot;
-    //     Ok(self
-    //         .get_choice(choice_id)?
-    //         .get_sell_order_values(market_pot, Some(sell_price), None)?)
-    // }
-
-    pub fn add_to_pot(&mut self, amount: u64) -> Result<&mut Self> {
-        require!(amount > 0, TallyClobErrors::AmountToAddTooLow);
-
-        self
-            .total_pot
-            .add_assign(amount);
-
-
-        Ok(self)
+        Ok(())
     }
 
-    pub fn add_to_choice_pot(&mut self, choice_id: &u64, amount: u64) -> Result<&mut Self> {
-        require!(amount > 0, TallyClobErrors::AmountToAddTooLow);
+    pub fn adjust_markets_after_sell(&mut self, final_order: &FinalOrder) -> Result<()> {
+        
+        // let new_choices = self.choices
+        //     .iter()
+        //     .map(|choice|ChoiceMarket {
+        //         pot_shares: choice.pot_shares - final_order.price + final_order.fee_price,
+        //         ..choice.clone()
+        //     })
+        //     .collect::<Vec<ChoiceMarket>>();
 
-        self
-        .get_choice(choice_id)?
-            .add_to_pot(amount)?;
+        // let shares_to_sell = self.calculate_shares_to_sell(new_choices, &final_order.choice_id)?;
 
-        Ok(self)
+        // require!(shares_to_sell == final_order.shares, TallyClobErrors::SharesNotEqual);
+
+        self.choices
+            .iter_mut()
+            .for_each(|choice|{
+                choice.pot_shares -= final_order.price + final_order.fee_price;
+            });
+
+        self.get_choice(&final_order.choice_id)?.usdc_pot -= final_order.price + final_order.fee_price;
+        self.get_choice(&final_order.choice_id)?.pot_shares += final_order.shares;
+        self.get_choice(&final_order.choice_id)?.minted_shares -= final_order.shares;
+
+        Ok(())
     }
-
-    pub fn add_to_choice_shares(&mut self, choice_id: &u64, amount: u64) -> Result<&mut Self> {
-        require!(amount > 0, TallyClobErrors::AmountToAddTooLow);
-
-        self.get_choice(choice_id)?
-            .add_to_shares(amount)?;
-
-        Ok(self)
-    }
-
-    pub fn withdraw_from_pot(&mut self, amount: u64) -> Result<&mut Self> {
-        require!(amount > 0, TallyClobErrors::AmountToWithdrawTooLow);
-        require!(amount <= self.total_pot, TallyClobErrors::AmountToWithdrawTooGreat);
-
-        self
-            .total_pot
-            .sub_assign(amount);
-        Ok(self)
-    }
-
-    pub fn withdraw_from_choice_pot(&mut self, choice_id: &u64, amount: u64) -> Result<&mut Self> {
-        require!(amount > 0, TallyClobErrors::AmountToWithdrawTooLow);
-        require!(amount <= self.total_pot, TallyClobErrors::AmountToWithdrawTooGreat);
-
-        self
-            .get_choice(choice_id)?
-            .withdraw_from_pot(amount)?;
-
-        Ok(self)
-    }
-
-    pub fn delete_shares_from_choice_pot(&mut self, choice_id: &u64, amount: u64) -> Result<&mut Self> {
-        require!(amount > 0, TallyClobErrors::AmountToWithdrawTooLow);
-
-        self
-            .get_choice(choice_id)?
-            .delete_shares(amount)?;
-
-        Ok(self)
-    }
-
 
     pub fn get_choice(&mut self, choice_id: &u64) -> Result<&mut ChoiceMarket> {
         match self.choices.binary_search_by_key(choice_id, |choice_market| choice_market.id) {

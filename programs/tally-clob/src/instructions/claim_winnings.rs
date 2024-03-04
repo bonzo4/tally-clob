@@ -23,10 +23,15 @@ pub fn claim_winnings(
     // check if user's shares have already been claimed
     require!(!choice_market_portfolio.claimed, TallyClobErrors::AlreadyClaimed);
 
-    let winnings_per_shares = ctx.accounts.market.get_sub_market(&sub_market_id)?.total_pot 
-    / ctx.accounts.market.get_sub_market(&sub_market_id)?.get_choice(&choice_id)?.shares;
+    let total_pot = ctx.accounts.market.get_sub_market(&sub_market_id)?.choices.iter()
+        .map(|choice| choice.usdc_pot)
+        .sum::<f64>();
+    
+    let winning_shares = ctx.accounts.market.get_sub_market(&sub_market_id)?.get_choice(&choice_id)?.minted_shares;
 
-    let total_winnings = winnings_per_shares * choice_market_portfolio.shares;
+    let pot_portion = choice_market_portfolio.shares / winning_shares;
+
+    let total_winnings = pot_portion * total_pot;
 
     // withdraw from shares
     choice_market_portfolio.withdraw_from_portfolio(choice_market_portfolio.shares)?;

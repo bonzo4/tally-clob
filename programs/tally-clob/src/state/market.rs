@@ -12,18 +12,19 @@ pub struct Market {
 
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone, PartialEq)]
 pub struct Order {
-    pub amount: u64,
+    pub amount: f64,
     pub sub_market_id: u64,
     pub choice_id: u64,
-    pub requested_price_per_share: u64,
+    pub requested_price_per_share: f64,
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone, PartialEq)]
 pub struct FinalOrder {
     pub sub_market_id: u64,
     pub choice_id: u64,
-    pub price: u64,
-    pub shares: u64
+    pub price: f64,
+    pub shares: f64,
+    pub fee_price: f64
 }
 
 impl Market {
@@ -52,29 +53,13 @@ impl Market {
     pub fn bulk_buy_values_by_price(
         &mut self,
         orders: &Vec<Order>,
-        market_periods: &Vec<MarketStatus>
     ) -> Result<Vec<BuyOrderValues>> {
         let order_values = orders.iter()
-            .enumerate()
-            .map(|(index, order)| {
-                let sub_market = self
+            .map(|order| self
                     .get_sub_market(&order.sub_market_id)
-                    .unwrap();
-                if market_periods[index] == MarketStatus::FairLaunch {
-                    let share_price = self
-                        .get_sub_market_default_price(&order.sub_market_id).unwrap();
-                    let total_shares = order.amount  / share_price;
-                    return BuyOrderValues {
-                        shares_to_buy: total_shares as u64, 
-                        buy_price: order.amount, 
-                        fee_price: 0}
-                }
-                let order_values = sub_market
+                    .unwrap()
                     .get_buy_values_by_price(&order.choice_id, order.amount)
-                    .unwrap();
-                    
-                order_values
-                }
+                    .unwrap()
             ).collect::<Vec<BuyOrderValues>>();
 
         Ok(order_values)
@@ -83,30 +68,14 @@ impl Market {
     pub fn bulk_buy_values_by_shares(
         &mut self,
         orders: &Vec<Order>,
-        market_periods: &Vec<MarketStatus>
     ) -> Result<Vec<BuyOrderValues>> {
         let order_values = orders.iter()
-            .enumerate()
-            .map(|(index, order)| {
-            let sub_market = self
+            .map(|order| 
+            self
                 .get_sub_market(&order.sub_market_id)
-                .unwrap();
-            if market_periods[index] == MarketStatus::FairLaunch {
-                let share_price = self
-                    .get_sub_market_default_price(&order.sub_market_id).unwrap();
-                let total_price = order.amount * share_price;
-                return BuyOrderValues {
-                    shares_to_buy: order.amount as u64, 
-                    buy_price: total_price, 
-                    fee_price: 0
-                }
-            }
-            let order_values = sub_market
-                .get_buy_values_by_shares(&order.choice_id, order.amount as u64)
-                .unwrap();
-                
-            order_values
-            }
+                .unwrap()
+                .get_buy_values_by_shares(&order.choice_id, order.amount)
+                .unwrap()
         ).collect::<Vec<BuyOrderValues>>();
 
     Ok(order_values)
@@ -135,7 +104,7 @@ impl Market {
         .map(|order| self
             .get_sub_market(&order.sub_market_id)
             .unwrap()
-            .get_sell_values_by_shares(&order.choice_id, order.amount as u64)
+            .get_sell_values_by_shares(&order.choice_id, order.amount)
             .unwrap()
         ).collect::<Vec<SellOrderValues>>();
 
@@ -148,11 +117,7 @@ impl Market {
             self
                 .get_sub_market(&order.sub_market_id)
                 .unwrap()
-                .add_to_pot(order.price)
-                .unwrap()
-                .add_to_choice_pot(&order.choice_id, order.price)
-                .unwrap()
-                .add_to_choice_shares(&order.choice_id, order.shares)
+                .adjust_markets_after_buy(&order)
                 .unwrap();
         });
         
@@ -165,19 +130,11 @@ impl Market {
             self
                 .get_sub_market(&order.sub_market_id)
                 .unwrap()
-                .withdraw_from_pot(order.price)
+                .adjust_markets_after_sell(&order)
                 .unwrap()
-                .withdraw_from_choice_pot(&order.choice_id, order.price)
-                .unwrap()
-                .delete_shares_from_choice_pot(&order.choice_id, order.shares)
-                .unwrap();
         });
         
         Ok(())
-    }
-
-    pub fn get_sub_market_default_price(&mut self, sub_market_id: &u64) -> Result<u64> {
-         Ok((1 / (self.get_sub_market(sub_market_id)?.choice_count) as u64)* 1_000_000) 
     }
 
 

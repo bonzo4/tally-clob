@@ -44,39 +44,22 @@ describe("init market", () => {
 
   let now = new Date();
 
-  const marketData = [
+  const initMarketData = [
     {
       id: new anchor.BN(1),
-      totalPot: 0,
-      choiceCount: 2,
-      choices: [
-        {
-          id: new anchor.BN(1),
-          shares: new anchor.BN(0),
-          totalPot: 0,
-          winningChoice: false,
-          price: 0.5,
-        },
-        {
-          id: new anchor.BN(2),
-          shares: new anchor.BN(0),
-          totalPot: 0,
-          winningChoice: false,
-          price: 0.5,
-        },
-      ],
+      choiceIds: [new anchor.BN(1), new anchor.BN(2)],
       fairLaunchStart: new anchor.BN(now.valueOf()),
       fairLaunchEnd: new anchor.BN(now.valueOf()),
       tradingStart: new anchor.BN(now.valueOf()),
       tradingEnd: new anchor.BN(now.valueOf()),
-      resolved: false,
-    },
+    }
   ]
+
 
   it("creates a market", async () => {
     await program.methods
       .initMarket(
-        marketData,
+        initMarketData,
         market_id.publicKey
       )
       .signers([authorizedKeypair])
@@ -90,14 +73,14 @@ describe("init market", () => {
 
     const subMarket = market.subMarkets[0];
 
-    expect(subMarket.totalPot).to.equal(0);
+    expect(subMarket.choices.map(choice => choice.usdcPot).reduce((sum, current) => sum + current, 0) ).to.equal(100);
   });
 
   it("unauthorized create", async () => {
     try {
       await program.methods
       .initMarket(
-        marketData,
+        initMarketData,
         market_id.publicKey
       )
       .signers([user])

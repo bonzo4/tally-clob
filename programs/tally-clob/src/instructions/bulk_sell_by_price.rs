@@ -50,18 +50,14 @@ pub fn bulk_sell_by_price(
 
     // 5. check for slippage on the price per share
     let actual_prices_per_share = order_values.iter()
-    .map(|values| values.sell_price / values.shares_to_sell).collect::<Vec<u64>>();
+    .map(|values| values.sell_price / values.shares_to_sell).collect::<Vec<f64>>();
     actual_prices_per_share.iter().for_each(|pps|msg!("pps: {}", pps));
 
     // 6. Check if all prices are within the expected range
     let prices_in_range = orders.iter().enumerate().map(|(index, order)| {
-    if market_periods[index] == MarketStatus::FairLaunch 
-        && order.requested_price_per_share == ctx.accounts.market.get_sub_market_default_price(&order.sub_market_id).unwrap() {
-        return true;
-    }
-    let top = order.requested_price_per_share * 1_050_000 / 1_000_000; // 1.05 as fixed-point
-    let bottom = order.requested_price_per_share * 950_000 / 1_000_000; // 0.95 as fixed-point
-    let within_limit = bottom < actual_prices_per_share[index] && actual_prices_per_share[index] < top;
+        let top = order.requested_price_per_share * 1.05; // 1.05 as fixed-point
+        let bottom = order.requested_price_per_share * 0.95; // 0.95 as fixed-point
+        let within_limit = bottom < actual_prices_per_share[index] && actual_prices_per_share[index] < top;
     within_limit
     }).collect::<Vec<bool>>();
 
@@ -79,7 +75,8 @@ pub fn bulk_sell_by_price(
                 sub_market_id: order.sub_market_id, 
                 choice_id: order.choice_id, 
                 price: values.sell_price + values.fee_price, 
-                shares: values.shares_to_sell
+                shares: values.shares_to_sell,
+                fee_price: values.fee_price
             }
         }).collect::<Vec<FinalOrder>>();
 
@@ -101,7 +98,7 @@ pub fn bulk_sell_by_price(
     ctx.accounts.user.add_to_balance(total_price_after_fees)?;
 
     //send fees
-    let total_fee_amount = order_values.iter().map(|order|order.fee_price).sum::<u64>();
+    let total_fee_amount = order_values.iter().map(|order|order.fee_price).sum::<f64>();
 
     let fee_cpi_accounts = Transfer {
         from: source.to_account_info().clone(),
@@ -111,7 +108,7 @@ pub fn bulk_sell_by_price(
 
     transfer (
         CpiContext::new(cpi_program, fee_cpi_accounts),
-        total_fee_amount 
+        total_fee_amount as u64 * 10_u64.pow(6)
     )?;
 
     Ok(())

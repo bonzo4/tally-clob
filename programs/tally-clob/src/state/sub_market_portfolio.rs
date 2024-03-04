@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 
-use crate::{vec_size, ChoicePortfolio, SubMarket, DISCRIMINATOR_SIZE, U64_SIZE};
+use crate::{vec_size, ChoicePortfolio, DISCRIMINATOR_SIZE, U64_SIZE};
 
 
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
@@ -14,7 +14,7 @@ impl SubMarketPortfolio {
 
     pub const SIZE: usize = DISCRIMINATOR_SIZE
     + U64_SIZE
-    + vec_size(ChoicePortfolio::SIZE, SubMarket::CHOICE_MAX_LENGTH);
+    + vec_size(ChoicePortfolio::SIZE, 2);
 
     pub fn new(id: u64) -> SubMarketPortfolio {
         let choice_portfolio: Vec<ChoicePortfolio> = Vec::new();
@@ -25,7 +25,7 @@ impl SubMarketPortfolio {
         }
     }
          
-    pub fn add_to_portfolio(&mut self, choice_id: &u64, shares: u64) -> Result<&Self> {
+    pub fn add_to_portfolio(&mut self, choice_id: &u64, shares: f64) -> Result<&Self> {
         self
             .get_choice_market_portfolio(choice_id)?
             .add_to_portfolio(shares)?;
@@ -34,7 +34,7 @@ impl SubMarketPortfolio {
         Ok(self)
     }
 
-    pub fn sell_from_portfolio(&mut self, choice_id: &u64, shares: u64) -> Result<&Self> {
+    pub fn sell_from_portfolio(&mut self, choice_id: &u64, shares: f64) -> Result<&Self> {
         self
             .get_choice_market_portfolio(choice_id)?
             .withdraw_from_portfolio(shares)?;
@@ -42,7 +42,7 @@ impl SubMarketPortfolio {
         Ok(self)
     }
 
-    pub fn get_choice_shares(&mut self, choice_id: &u64) -> Result<u64> {
+    pub fn get_choice_shares(&mut self, choice_id: &u64) -> Result<f64> {
         let choice_shares = self
             .get_choice_market_portfolio(choice_id)?
             .shares;
