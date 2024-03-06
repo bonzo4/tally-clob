@@ -1,6 +1,5 @@
 import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
-import { TallyClob } from "../../target/types/tally_clob";
 import { PublicKey } from "@solana/web3.js";
 import { expect } from "chai";
 import {
@@ -8,13 +7,14 @@ import {
   getOwnerKeypair,
   getUserKeypair,
 } from "../utils/wallets";
+import { getProgram } from "../utils/program";
 
 
 
 describe("init market", () => {
   const provider = anchor.AnchorProvider.env();
   anchor.setProvider(provider);
-  const program = anchor.workspace.TallyClob as Program<TallyClob>;
+  const program = getProgram();
 
   let market_id = anchor.web3.Keypair.generate();
 
@@ -47,6 +47,7 @@ describe("init market", () => {
   const initMarketData = [
     {
       id: new anchor.BN(1),
+      initPot: new anchor.BN(100 * Math.pow(10, 6)),
       choiceIds: [new anchor.BN(1), new anchor.BN(2)],
       fairLaunchStart: new anchor.BN(now.valueOf()),
       fairLaunchEnd: new anchor.BN(now.valueOf()),
@@ -73,7 +74,7 @@ describe("init market", () => {
 
     const subMarket = market.subMarkets[0];
 
-    expect(subMarket.choices.map(choice => choice.usdcPot).reduce((sum, current) => sum + current, 0) ).to.equal(100);
+    expect(subMarket.choices.map(choice => choice.usdcPot).reduce((sum, current) => sum + current.toNumber(), 0)/ Math.pow(10, 6)).to.equal(100);
   });
 
   it("unauthorized create", async () => {

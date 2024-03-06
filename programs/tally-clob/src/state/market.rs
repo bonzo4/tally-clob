@@ -12,7 +12,7 @@ pub struct Market {
 
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone, PartialEq)]
 pub struct Order {
-    pub amount: f64,
+    pub amount: u128,
     pub sub_market_id: u64,
     pub choice_id: u64,
     pub requested_price_per_share: f64,
@@ -22,9 +22,9 @@ pub struct Order {
 pub struct FinalOrder {
     pub sub_market_id: u64,
     pub choice_id: u64,
-    pub price: f64,
-    pub shares: f64,
-    pub fee_price: f64
+    pub price: u128,
+    pub shares: u128,
+    pub fee_price: u128
 }
 
 impl Market {

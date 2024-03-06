@@ -1,15 +1,15 @@
 import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
-import { TallyClob } from "../target/types/tally_clob";
 import {  PublicKey } from "@solana/web3.js";
 import { expect } from "chai";
 import { getAuthorizedUserKeypair, getOwnerKeypair } from "./utils/wallets";
+import { getProgram } from "./utils/program";
 
 describe("authorize user instruction", () => {
 
   const provider = anchor.AnchorProvider.env()
   anchor.setProvider(provider);
-  const program = anchor.workspace.TallyClob as Program<TallyClob>;
+  const program = getProgram();
 
   let userKeypair = getAuthorizedUserKeypair();
   let owner = getOwnerKeypair();

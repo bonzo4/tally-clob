@@ -50,7 +50,7 @@ pub fn bulk_sell_by_price(
 
     // 5. check for slippage on the price per share
     let actual_prices_per_share = order_values.iter()
-    .map(|values| values.sell_price / values.shares_to_sell).collect::<Vec<f64>>();
+    .map(|values| values.sell_price as f64 / values.shares_to_sell as f64).collect::<Vec<f64>>();
     actual_prices_per_share.iter().for_each(|pps|msg!("pps: {}", pps));
 
     // 6. Check if all prices are within the expected range
@@ -98,7 +98,7 @@ pub fn bulk_sell_by_price(
     ctx.accounts.user.add_to_balance(total_price_after_fees)?;
 
     //send fees
-    let total_fee_amount = order_values.iter().map(|order|order.fee_price).sum::<f64>();
+    let total_fee_amount = order_values.iter().map(|order|order.fee_price).sum::<u128>();
 
     let fee_cpi_accounts = Transfer {
         from: source.to_account_info().clone(),
@@ -108,7 +108,7 @@ pub fn bulk_sell_by_price(
 
     transfer (
         CpiContext::new(cpi_program, fee_cpi_accounts),
-        total_fee_amount as u64 * 10_u64.pow(6)
+        total_fee_amount as u64
     )?;
 
     Ok(())

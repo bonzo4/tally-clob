@@ -25,7 +25,7 @@ pub fn claim_winnings(
 
     let total_pot = ctx.accounts.market.get_sub_market(&sub_market_id)?.choices.iter()
         .map(|choice| choice.usdc_pot)
-        .sum::<f64>();
+        .sum::<u128>();
     
     let winning_shares = ctx.accounts.market.get_sub_market(&sub_market_id)?.get_choice(&choice_id)?.minted_shares;
 

@@ -3,13 +3,13 @@ use anchor_spl::token::{transfer, Mint, Token, TokenAccount, Transfer};
 
 use crate::{errors::TallyClobErrors, User};
 
-pub fn withdraw_from_balance(ctx: Context<WithdrawFromBalance>, amount: f64) -> Result<()> {
+pub fn withdraw_from_balance(ctx: Context<WithdrawFromBalance>, amount: u128) -> Result<()> {
     let mint = &ctx.accounts.mint;
     let mint_key = mint.key().to_string();
     let usdc_key = "5DUWZLh3zPKAAJKu7ftMJJrkBrKnq3zHPPmguzVkhSes".to_string(); // not actually usdc address for development
     require!(mint_key == usdc_key, TallyClobErrors::NotUSDC);
     
-    require!(amount > 0.0, TallyClobErrors::AmountToWithdrawTooLow);
+    require!(amount > 0, TallyClobErrors::AmountToWithdrawTooLow);
     require!(amount <= ctx.accounts.user.balance, TallyClobErrors::AmountToWithdrawTooGreat);
     
     ctx.accounts.user.withdraw_from_balance(amount)?;
@@ -26,7 +26,7 @@ pub fn withdraw_from_balance(ctx: Context<WithdrawFromBalance>, amount: f64) -> 
     let token_program = &ctx.accounts.token_program;
     let cpi_program = &token_program.to_account_info();
 
-    let fee_amount = amount * 0.05;
+    let fee_amount = amount / 20;
     let new_amount = (amount as i64 - fee_amount as i64) as u64;
 
     // transfer fees
@@ -38,7 +38,7 @@ pub fn withdraw_from_balance(ctx: Context<WithdrawFromBalance>, amount: f64) -> 
 
     transfer (
         CpiContext::new(cpi_program.clone(), fee_cpi_accounts),
-        fee_amount as u64 * 10_u64.pow(6)
+        fee_amount as u64
     )?;
 
     // transfer amount

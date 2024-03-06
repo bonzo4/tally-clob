@@ -1,6 +1,5 @@
 import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
-import { TallyClob } from "../../target/types/tally_clob";
 import { PublicKey } from "@solana/web3.js";
 import { expect } from "chai";
 import {
@@ -61,6 +60,7 @@ describe("fair launch", () => {
   const initMarketData = [
     {
       id: new anchor.BN(2),
+      initPot: new anchor.BN(100 * Math.pow(10, 6)),
       choiceIds: [new anchor.BN(1),new anchor.BN(2)],
       fairLaunchStart: new anchor.BN((now.valueOf() / 1000) - 60 * 60),
       fairLaunchEnd: new anchor.BN((now.valueOf() / 1000) + 60 * 60),
@@ -77,7 +77,7 @@ describe("fair launch", () => {
       .signers([walletManagerKeypair])
       .accounts({ user: userPDA, signer: walletManagerKeypair.publicKey })
       .rpc()
-      .catch((_) => {});
+      .catch(_ => {});
 
     await program.methods
       .initMarket(initMarketData, marketKeypair.publicKey)
@@ -88,6 +88,7 @@ describe("fair launch", () => {
         authorizedUser: authorizedUserPda,
       })
       .rpc()
+      .catch(err => console.log(err));
 
     const user = await program.account.user.fetch(userPDA);
 
@@ -106,17 +107,19 @@ describe("fair launch", () => {
           ),
           feeUsdcAccount: feeAccount
         })
-        .rpc();
+        .rpc()
+        .catch(err => console.log(err));
     }
 
     await program.methods
-      .addToBalance(10)
+      .addToBalance(new anchor.BN(10 * Math.pow(10, 6)))
       .signers([walletManagerKeypair])
       .accounts({
         user: userPDA,
         signer: walletManagerKeypair.publicKey,
       })
-      .rpc();
+      .rpc()
+      .catch(err => console.log(err));
   });
 
   it("sucessfully created the market and reset user balance", async () => {
@@ -125,8 +128,8 @@ describe("fair launch", () => {
 
     const subMarket = market.subMarkets[0];
 
-    expect(subMarket.choices.map(choice => choice.usdcPot).reduce((sum, current) => sum + current, 0)).to.equal(100);
-    expect(user.balance).to.equal(10);
+    expect(subMarket.choices.map(choice => choice.usdcPot).reduce((sum, current) => sum + current.toNumber(), 0) / Math.pow(10, 6)).to.equal(100);
+    expect(user.balance.toNumber() / Math.pow(10, 6)).to.equal(10);
   })
 
   it("fails to fair launch order due to not clob manager", async () => {
@@ -134,7 +137,7 @@ describe("fair launch", () => {
       await program.methods
         .fairLaunchOrder([
           {
-            amount: 5,
+            amount: new anchor.BN(5 * Math.pow(10, 6)),
             subMarketId: new anchor.BN(2),
             choiceId: new anchor.BN(1),
             requestedPricePerShare: 0.5 ,
@@ -161,7 +164,7 @@ describe("fair launch", () => {
       await program.methods
         .fairLaunchOrder([
           {
-            amount: 100,
+            amount: new anchor.BN(100 * Math.pow(10, 6)),
             subMarketId: new anchor.BN(2),
             choiceId: new anchor.BN(1),
             requestedPricePerShare: 0.5,
@@ -188,7 +191,7 @@ describe("fair launch", () => {
     await program.methods
       .fairLaunchOrder([
         {
-          amount: 5,
+          amount: new anchor.BN(5 * Math.pow(10, 6)),
           subMarketId: new anchor.BN(2),
           choiceId: new anchor.BN(1),
           requestedPricePerShare: 0.5,
@@ -207,14 +210,14 @@ describe("fair launch", () => {
     const market = await program.account.market.fetch(marketPDA);
     const marketPortfolio = await program.account.marketPortfolio.fetch(marketPortfolioPDA);
 
-    expect(user.balance).to.equal(5)
-    expect(market.subMarkets[0].choices.map(choice => choice.usdcPot).reduce((sum, current) => sum + current, 0) ).to.equal(105);
-    expect(market.subMarkets[0].choices[0].potShares).to.equal(100.11357187078718)
-    expect(market.subMarkets[0].choices[1].potShares).to.equal(110.12492905786593)
-    expect(market.subMarkets[0].choices[0].usdcPot).to.equal(55)
-    expect(market.subMarkets[0].choices[0].mintedShares).to.equal(5)
-    expect(market.subMarkets[0].choices[0].fairLaunchPot).to.equal(55)
-    expect(marketPortfolio.subMarketPortfolio[0].choicePortfolio[0].shares).to.equal(5)
+    expect(Number(BigInt(user.balance.toNumber()) / BigInt(Math.pow(10, 6)))).to.equal(5)
+    expect(Number(market.subMarkets[0].choices.map(choice => choice.usdcPot).reduce((sum, current) => BigInt(sum) + BigInt(current.toNumber()), BigInt(0)) / BigInt(Math.pow(10, 6)))).to.equal(105);
+    expect(Number(BigInt(market.subMarkets[0].choices[0].potShares.toNumber()) / BigInt(Math.pow(10, 6)))).to.equal(100.11357187078718)
+    expect(Number(BigInt(market.subMarkets[0].choices[1].potShares.toNumber()) / BigInt(Math.pow(10, 6)))).to.equal(110.12492905786593)
+    expect(Number(BigInt(market.subMarkets[0].choices[0].usdcPot.toNumber()) / BigInt(Math.pow(10, 6)))).to.equal(55)
+    expect(Number(BigInt(market.subMarkets[0].choices[0].mintedShares.toNumber()) / BigInt(Math.pow(10, 6)))).to.equal(5)
+    expect(Number(BigInt(market.subMarkets[0].choices[0].fairLaunchPot.toNumber()) / BigInt(Math.pow(10, 6)))).to.equal(55)
+    expect(Number(BigInt(marketPortfolio.subMarketPortfolio[0].choicePortfolio[0].shares.toNumber() / Math.pow(10, 6)))).to.equal(5)
   })
 
   it("fails to sell by shares due to fair launch", async () => {
@@ -222,7 +225,7 @@ describe("fair launch", () => {
       await program.methods
         .bulkSellByShares([
           {
-            amount: 1,
+            amount: new anchor.BN(1 * Math.pow(10, 6)),
             subMarketId: new anchor.BN(2),
             choiceId: new anchor.BN(1),
             requestedPricePerShare: 0.5,
@@ -253,7 +256,7 @@ describe("fair launch", () => {
       await program.methods
         .bulkSellByPrice([
           {
-            amount: 1,
+            amount: new anchor.BN(1 * Math.pow(10, 6)),
             subMarketId: new anchor.BN(2),
             choiceId: new anchor.BN(1),
             requestedPricePerShare: 0.5 ,

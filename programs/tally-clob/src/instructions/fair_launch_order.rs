@@ -1,6 +1,7 @@
 use std::borrow::BorrowMut;
 
 use anchor_lang::{context::Context, prelude::*};
+use spl_math::precise_number::PreciseNumber;
 
 use crate::{errors::TallyClobErrors, utils::has_unique_elements, ChoiceMarket, Market, MarketPortfolio, MarketStatus, Order, User};
 
@@ -49,22 +50,33 @@ pub fn fair_launch_order(
 
             let total_pot = new_choices.iter()
                 .map(|choice| choice.fair_launch_pot)
-                .sum::<f64>();
-            let invariant = total_pot * total_pot;
+                .sum::<u128>();
+            
+            let total_pot_prec = PreciseNumber::new(total_pot).ok_or(TallyClobErrors::NotAValidOrder).unwrap();
+
+
+            let invariant = total_pot_prec.checked_pow(2).ok_or(TallyClobErrors::NotAValidOrder).unwrap();
             let pot_proportion = new_choices.iter()
                 .map(|choice|{
-                    choice.fair_launch_pot/ total_pot * 100.0
+                    PreciseNumber::new(((choice.fair_launch_pot as f64/ total_pot as f64) * 10_f64.powf(6.0)) as u128)
+                        .ok_or(TallyClobErrors::NotAValidOrder).unwrap()
                 })
-                .collect::<Vec<f64>>();
-            let k = (invariant/ (pot_proportion[0] * pot_proportion[1])).sqrt();
+                .collect::<Vec<PreciseNumber>>();
+
+            let proportion_product = pot_proportion[0].checked_mul(&pot_proportion[1]).ok_or(TallyClobErrors::NotAValidOrder).unwrap();
+            let k = invariant.checked_div(&proportion_product).ok_or(TallyClobErrors::NotAValidOrder).unwrap();
+            let k_sqrt = k.sqrt().ok_or(TallyClobErrors::NotAValidOrder).unwrap();
 
             ctx.accounts.market.get_sub_market(&order.sub_market_id).unwrap().get_choice(&order.choice_id).unwrap().fair_launch_pot += order.amount;
             ctx.accounts.market.get_sub_market(&order.sub_market_id).unwrap().get_choice(&order.choice_id).unwrap().usdc_pot += order.amount;
             ctx.accounts.market.get_sub_market(&order.sub_market_id).unwrap().get_choice(&order.choice_id).unwrap().minted_shares += order.amount;
-            ctx.accounts.market.get_sub_market(&order.sub_market_id).unwrap().invariant = invariant;
+            ctx.accounts.market.get_sub_market(&order.sub_market_id).unwrap().invariant = invariant.value.as_u128();
             
-            ctx.accounts.market.get_sub_market(&order.sub_market_id).unwrap().choices[0].pot_shares = k * pot_proportion[1];
-            ctx.accounts.market.get_sub_market(&order.sub_market_id).unwrap().choices[1].pot_shares = k * pot_proportion[0];
+            let pot_shares0 = k_sqrt.checked_mul(&pot_proportion[1]).ok_or(TallyClobErrors::NotAValidOrder).unwrap();
+            let pot_shares1 = k_sqrt.checked_mul(&pot_proportion[0]).ok_or(TallyClobErrors::NotAValidOrder).unwrap();
+
+            ctx.accounts.market.get_sub_market(&order.sub_market_id).unwrap().choices[0].pot_shares = pot_shares0.value.as_u128();
+            ctx.accounts.market.get_sub_market(&order.sub_market_id).unwrap().choices[1].pot_shares = pot_shares1.value.as_u128();
 
             
             ctx.accounts.market_portfolio

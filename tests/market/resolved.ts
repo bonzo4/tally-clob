@@ -1,6 +1,4 @@
 import * as anchor from "@coral-xyz/anchor";
-import { Program } from "@coral-xyz/anchor";
-import { TallyClob } from "../../target/types/tally_clob";
 import { PublicKey } from "@solana/web3.js";
 import { expect } from "chai";
 import {
@@ -64,6 +62,7 @@ describe("resolved", () => {
   const initMarketData = [
     {
       id: new anchor.BN(1),
+      initPot: new anchor.BN(100 * Math.pow(10, 6)),
       choiceIds: [new anchor.BN(1), new anchor.BN(2)],
       fairLaunchStart: new anchor.BN(now.valueOf() / 1000 - 60 * 60 * 3),
       fairLaunchEnd: new anchor.BN(now.valueOf() / 1000 - 60 * 60 * 2),
@@ -72,6 +71,7 @@ describe("resolved", () => {
     },
     {
       id: new anchor.BN(2),
+      initPot: new anchor.BN(100 * Math.pow(10, 6)),
       choiceIds: [new anchor.BN(1), new anchor.BN(2)],
       fairLaunchStart: new anchor.BN(now.valueOf() / 1000 - 60 * 60 * 3),
       fairLaunchEnd: new anchor.BN(now.valueOf() / 1000 - 60 * 60 * 2),
@@ -114,7 +114,7 @@ describe("resolved", () => {
     }
 
     await program.methods
-      .addToBalance(10)
+      .addToBalance(new anchor.BN(10 * Math.pow(10, 6)))
       .signers([walletManager])
       .accounts({
         user: userPDA,
@@ -129,18 +129,18 @@ describe("resolved", () => {
 
     const subMarket = market.subMarkets[0];
 
-    expect(subMarket.choices.map(choice => choice.usdcPot).reduce((sum, current) => sum + current, 0)).to.equal(100);
-    expect(user.balance).to.equal(10);
+    expect(subMarket.choices.map(choice => choice.usdcPot).reduce((sum, current) => sum + current.toNumber(), 0) / Math.pow(10, 6)).to.equal(100);
+    expect(user.balance.toNumber() / Math.pow(10, 6)).to.equal(10);
   });
 
   it("buy bulk by price", async () => {
     await program.methods
       .bulkBuyByPrice([
         {
-          amount: 5,
+          amount: new anchor.BN(5 * Math.pow(10, 6)),
           subMarketId: new anchor.BN(1),
           choiceId: new anchor.BN(1),
-          requestedPricePerShare: 0.55,
+          requestedPricePerShare: 0.5121,
         },
       ])
       .signers([walletManager])
@@ -163,14 +163,14 @@ describe("resolved", () => {
     const marketPortfolio = await program.account.marketPortfolio.fetch(marketPortfolioPDA);
     console.log(marketPortfolio.subMarketPortfolio[0].choicePortfolio)
 
-    expect(user.balance).to.equal(5)
-    expect(market.subMarkets[0].choices.map(choice => choice.usdcPot).reduce((sum, current) => sum + current, 0) ).to.equal(104.975);
-    expect(market.subMarkets[0].choices[0].potShares).to.equal(95.92543201455207)
-    expect(market.subMarkets[0].choices[1].potShares).to.equal(104.975)
-    expect(market.subMarkets[0].choices[0].usdcPot).to.equal(54.975)
-    expect(market.subMarkets[0].choices[0].mintedShares).to.equal(9.049567985447922)
-    expect(market.subMarkets[0].choices[0].fairLaunchPot).to.equal(50)
-    expect(marketPortfolio.subMarketPortfolio[0].choicePortfolio[0].shares).to.equal(9.049567985447922)
+    expect(user.balance.toNumber() / Math.pow(10, 6)).to.equal(5)
+    expect(market.subMarkets[0].choices.map(choice => choice.usdcPot).reduce((sum, current) => sum + current.toNumber(), 0) / Math.pow(10, 6)).to.equal(104.975);
+    expect(market.subMarkets[0].choices[0].potShares.toNumber() / Math.pow(10, 6)).to.equal(95.92543201455207)
+    expect(market.subMarkets[0].choices[1].potShares.toNumber() / Math.pow(10, 6)).to.equal(104.975)
+    expect(market.subMarkets[0].choices[0].usdcPot.toNumber() / Math.pow(10, 6)).to.equal(54.975)
+    expect(market.subMarkets[0].choices[0].mintedShares.toNumber() / Math.pow(10, 6)).to.equal(9.049567985447922)
+    expect(market.subMarkets[0].choices[0].fairLaunchPot.toNumber() / Math.pow(10, 6)).to.equal(50)
+    expect(marketPortfolio.subMarketPortfolio[0].choicePortfolio[0].shares.toNumber() / Math.pow(10, 6)).to.equal(9.049567985447922)
   });
   
   it("fails to claim winnings", async () => {
@@ -269,8 +269,8 @@ describe("resolved", () => {
     const user = await program.account.user.fetch(userPDA);
     const marketPortfolio = await program.account.marketPortfolio.fetch(marketPortfolioPDA);
 
-    expect(user.balance).to.equal(104.975)
-    expect(marketPortfolio.subMarketPortfolio[0].choicePortfolio[0].shares).to.equal(0)
+    expect(user.balance.toNumber() / Math.pow(10, 6)).to.equal(104.975)
+    expect(marketPortfolio.subMarketPortfolio[0].choicePortfolio[0].shares.toNumber() / Math.pow(10, 6)).to.equal(0)
     expect(marketPortfolio.subMarketPortfolio[0].choicePortfolio[0].claimed).to.equal(true)
     
   })

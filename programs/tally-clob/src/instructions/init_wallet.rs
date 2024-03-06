@@ -2,9 +2,10 @@ use anchor_lang::prelude::*;
 
 use crate::User;
 
-pub fn init_wallet(ctx: Context<InitWallet>) -> Result<Pubkey> {
-    ctx.accounts.user.balance = 0.0;
-    Ok(ctx.accounts.user.key())
+pub fn init_wallet(ctx: Context<InitWallet>) -> Result<()> {
+    ctx.accounts.user.balance = 0;
+    ctx.accounts.user.unreedemable_balance = 0;
+    Ok(())
 }
 
 #[derive(Accounts)]

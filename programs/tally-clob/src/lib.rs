@@ -7,7 +7,7 @@ pub mod errors;
 pub mod state;
 pub mod utils;
 
-declare_id!("3DRCmEKEds4FUwZHYWuqfRqS8W5fpRaEYHzYbj7giQcj");
+declare_id!("82sLeG3T3RR9iHJH8x3DgAroEGgvuGCyqdC5EVHz6L13");
 
 #[program]
 pub mod tally_clob {
@@ -44,16 +44,14 @@ pub mod tally_clob {
     pub fn init_wallet(
         ctx: Context<InitWallet>,
         user_key: Pubkey
-    ) -> Result<Pubkey> {
+    ) -> Result<()> {
         is_wallet_manager(ctx.accounts.signer.key())?;
-        let user_key = instructions::init_wallet(ctx)?;
-
-        Ok(user_key)
+        instructions::init_wallet(ctx)
     }
 
     pub fn add_to_balance(
         ctx: Context<AddToBalance>,
-        amount: f64
+        amount: u128
     ) -> Result<()> {
         is_wallet_manager(ctx.accounts.signer.key())?;
 
@@ -62,7 +60,7 @@ pub mod tally_clob {
 
     pub fn withdraw_from_balance(
         ctx: Context<WithdrawFromBalance>,
-        amount: f64
+        amount: u128
     ) -> Result<()> {
         is_wallet_manager(ctx.accounts.signer.key())?;
 

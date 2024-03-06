@@ -55,7 +55,7 @@ impl MarketPortfolio {
         Ok(self)
     }
 
-    pub fn add_to_portfolio(&mut self, sub_market_id: &u64, choice_id: &u64, shares: f64) -> Result<&Self> {
+    pub fn add_to_portfolio(&mut self, sub_market_id: &u64, choice_id: &u64, shares: u128) -> Result<&Self> {
         match self
             .get_sub_market_portfolio(sub_market_id) {
                 Ok (sub_market_portfolio) => {
@@ -73,7 +73,7 @@ impl MarketPortfolio {
         Ok(self)
     }
     
-    pub fn sell_from_portfolio(&mut self, sub_market_id: &u64, choice_id: &u64, shares: f64) -> Result<&Self> {
+    pub fn sell_from_portfolio(&mut self, sub_market_id: &u64, choice_id: &u64, shares: u128) -> Result<&Self> {
         self
             .get_sub_market_portfolio(sub_market_id)?
             .sell_from_portfolio(choice_id, shares)?;
@@ -81,7 +81,7 @@ impl MarketPortfolio {
         Ok(self)
     }
 
-    pub fn get_choice_shares(&mut self, sub_market_id: &u64, choice_id: &u64) -> Result<f64> {
+    pub fn get_choice_shares(&mut self, sub_market_id: &u64, choice_id: &u64) -> Result<u128> {
         let choice_shares = self
             .get_sub_market_portfolio(sub_market_id)?
             .get_choice_shares(choice_id)?;

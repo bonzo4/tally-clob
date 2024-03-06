@@ -1,6 +1,4 @@
 import * as anchor from "@coral-xyz/anchor";
-import { Program } from "@coral-xyz/anchor";
-import { TallyClob } from "../../target/types/tally_clob";
 import { PublicKey } from "@solana/web3.js";
 import { expect } from "chai";
 import {
@@ -64,6 +62,7 @@ describe("trading", () => {
   const initMarketData = [
     {
       id: new anchor.BN(1),
+      initPot: new anchor.BN(100 * Math.pow(10, 6)),
       choiceIds: [new anchor.BN(1), new anchor.BN(2)],
       fairLaunchStart: new anchor.BN(now.valueOf() / 1000 - 60 * 60 * 3),
       fairLaunchEnd: new anchor.BN(now.valueOf() / 1000 - 60 * 60 * 2),
@@ -72,6 +71,7 @@ describe("trading", () => {
     },
     {
       id: new anchor.BN(2),
+      initPot: new anchor.BN(100 * Math.pow(10, 6)),
       choiceIds: [new anchor.BN(1), new anchor.BN(2)],
       fairLaunchStart: new anchor.BN(now.valueOf() / 1000 - 60 * 60 * 3),
       fairLaunchEnd: new anchor.BN(now.valueOf() / 1000 - 60 * 60 * 2),
@@ -114,7 +114,7 @@ describe("trading", () => {
     }
 
     await program.methods
-      .addToBalance(10)
+      .addToBalance(new anchor.BN(10 * Math.pow(10, 6)))
       .signers([walletManager])
       .accounts({
         user: userPDA,
@@ -129,8 +129,8 @@ describe("trading", () => {
 
     const subMarket = market.subMarkets[0];
 
-    expect(subMarket.choices.map(choice => choice.usdcPot).reduce((sum, current) => sum + current, 0)).to.equal(100);
-    expect(user.balance).to.equal(10);
+    expect(subMarket.choices.map(choice => choice.usdcPot).reduce((sum, current) => sum + current.toNumber(), 0) / Math.pow(10, 6)).to.equal(100);
+    expect(user.balance.toNumber() / Math.pow(10, 6)).to.equal(10);
   });
 
   it("fails to buy by shares due to not clob manager", async () => {
@@ -138,7 +138,7 @@ describe("trading", () => {
       await program.methods
         .bulkBuyByShares([
           {
-            amount: 1,
+            amount: new anchor.BN(1 * Math.pow(10, 6)),
             subMarketId: new anchor.BN(1),
             choiceId: new anchor.BN(1),
             requestedPricePerShare: 0.5,
@@ -168,19 +168,19 @@ describe("trading", () => {
       await program.methods
         .bulkBuyByShares([
           {
-            amount: 1,
+            amount: new anchor.BN(1 * Math.pow(10, 6)),
             subMarketId: new anchor.BN(1),
             choiceId: new anchor.BN(1),
             requestedPricePerShare: 0.5 ,
           },
           {
-            amount: 1,
+            amount: new anchor.BN(1 * Math.pow(10, 6)),
             subMarketId: new anchor.BN(1),
             choiceId: new anchor.BN(2),
             requestedPricePerShare: 0.5,
           },
           {
-            amount: 1,
+            amount: new anchor.BN(1 * Math.pow(10, 6)),
             subMarketId: new anchor.BN(1),
             choiceId: new anchor.BN(2),
             requestedPricePerShare: 0.5,
@@ -210,13 +210,13 @@ describe("trading", () => {
       await program.methods
         .bulkBuyByShares([
           {
-            amount: 1,
+            amount: new anchor.BN(1 * Math.pow(10, 6)),
             subMarketId: new anchor.BN(1),
             choiceId: new anchor.BN(1),
             requestedPricePerShare: 0.5,
           },
           {
-            amount: 1,
+            amount: new anchor.BN(1 * Math.pow(10, 6)),
             subMarketId: new anchor.BN(1),
             choiceId: new anchor.BN(2),
             requestedPricePerShare: 0.5,
@@ -247,7 +247,7 @@ describe("trading", () => {
       await program.methods
         .bulkBuyByShares([
           {
-            amount: 20,
+            amount: new anchor.BN(20 * Math.pow(10, 6)),
             subMarketId: new anchor.BN(1),
             choiceId: new anchor.BN(1),
             requestedPricePerShare: 0.524,
@@ -277,7 +277,7 @@ describe("trading", () => {
       await program.methods
         .bulkBuyByShares([
           {
-            amount: 1,
+            amount: new anchor.BN(1 * Math.pow(10, 6)),
             subMarketId: new anchor.BN(1),
             choiceId: new anchor.BN(1),
             requestedPricePerShare: 0.1,
@@ -308,7 +308,7 @@ describe("trading", () => {
       await program.methods
         .bulkSellByShares([
           {
-            amount: 1,
+            amount: new anchor.BN(1 * Math.pow(10, 6)),
             subMarketId: new anchor.BN(1),
             choiceId: new anchor.BN(1),
             requestedPricePerShare: 0.5,
@@ -339,7 +339,7 @@ describe("trading", () => {
       await program.methods
         .bulkSellByPrice([
           {
-            amount: 1,
+            amount: new anchor.BN(1 * Math.pow(10, 6)),
             subMarketId: new anchor.BN(1),
             choiceId: new anchor.BN(1),
             requestedPricePerShare: 0.5,
@@ -369,7 +369,7 @@ describe("trading", () => {
     await program.methods
       .bulkBuyByPrice([
         {
-          amount: 5,
+          amount: new anchor.BN(5 * Math.pow(10, 6)),
           subMarketId: new anchor.BN(1),
           choiceId: new anchor.BN(1),
           requestedPricePerShare: 0.5121,
@@ -395,21 +395,21 @@ describe("trading", () => {
     const marketPortfolio = await program.account.marketPortfolio.fetch(marketPortfolioPDA);
     console.log(marketPortfolio.subMarketPortfolio[0].choicePortfolio)
 
-    expect(user.balance).to.equal(5)
-    expect(market.subMarkets[0].choices.map(choice => choice.usdcPot).reduce((sum, current) => sum + current, 0) ).to.equal(104.975);
-    expect(market.subMarkets[0].choices[0].potShares).to.equal(95.26077637532747)
-    expect(market.subMarkets[0].choices[1].potShares).to.equal(104.975)
-    expect(market.subMarkets[0].choices[0].usdcPot).to.equal(54.975)
-    expect(market.subMarkets[0].choices[0].mintedShares).to.equal(9.714223624672528)
-    expect(market.subMarkets[0].choices[0].fairLaunchPot).to.equal(50)
-    expect(marketPortfolio.subMarketPortfolio[0].choicePortfolio[0].shares).to.equal(9.714223624672528)
+    expect(user.balance.toNumber() / Math.pow(10, 6)).to.equal(5)
+    expect(market.subMarkets[0].choices.map(choice => choice.usdcPot).reduce((sum, current) => sum + current.toNumber(), 0) / Math.pow(10, 6)).to.equal(104.975);
+    expect(market.subMarkets[0].choices[0].potShares.toNumber() / Math.pow(10, 6)).to.equal(95.26077637532747)
+    expect(market.subMarkets[0].choices[1].potShares.toNumber() / Math.pow(10, 6)).to.equal(104.975)
+    expect(market.subMarkets[0].choices[0].usdcPot.toNumber() / Math.pow(10, 6)).to.equal(54.975)
+    expect(market.subMarkets[0].choices[0].mintedShares.toNumber() / Math.pow(10, 6)).to.equal(9.714223624672528)
+    expect(market.subMarkets[0].choices[0].fairLaunchPot.toNumber() / Math.pow(10, 6)).to.equal(50)
+    expect(marketPortfolio.subMarketPortfolio[0].choicePortfolio[0].shares.toNumber() / Math.pow(10, 6)).to.equal(9.714223624672528)
   });
 
   it("buy bulk by price 2", async () => {
     await program.methods
       .bulkBuyByPrice([
         {
-          amount: 1,
+          amount: new anchor.BN(1 * Math.pow(10, 6)),
           subMarketId: new anchor.BN(1),
           choiceId: new anchor.BN(1),
           requestedPricePerShare: 0.5433,
@@ -435,14 +435,14 @@ describe("trading", () => {
     const marketPortfolio = await program.account.marketPortfolio.fetch(marketPortfolioPDA);
     console.log(marketPortfolio.subMarketPortfolio[0].choicePortfolio)
 
-    expect(user.balance).to.equal(0)
-    expect(market.subMarkets[0].choices.map(choice => choice.usdcPot).reduce((sum, current) => sum + current, 0) ).to.equal(109.95);
-    expect(market.subMarkets[0].choices[0].potShares).to.equal(90.95043201455208)
-    expect(market.subMarkets[0].choices[1].potShares).to.equal(109.94999999999999)
-    expect(market.subMarkets[0].choices[0].usdcPot).to.equal(59.95)
-    expect(market.subMarkets[0].choices[0].mintedShares).to.equal(18.99956798544791)
-    expect(market.subMarkets[0].choices[0].fairLaunchPot).to.equal(50)
-    expect(marketPortfolio.subMarketPortfolio[0].choicePortfolio[0].shares).to.equal(18.99956798544791)
+    expect(user.balance.toNumber() / Math.pow(10, 6)).to.equal(0)
+    expect(market.subMarkets[0].choices.map(choice => choice.usdcPot).reduce((sum, current) => sum + current.toNumber(), 0) / Math.pow(10, 6)).to.equal(109.95);
+    expect(market.subMarkets[0].choices[0].potShares.toNumber() / Math.pow(10, 6)).to.equal(90.95043201455208)
+    expect(market.subMarkets[0].choices[1].potShares.toNumber() / Math.pow(10, 6)).to.equal(109.94999999999999)
+    expect(market.subMarkets[0].choices[0].usdcPot.toNumber() / Math.pow(10, 6)).to.equal(59.95)
+    expect(market.subMarkets[0].choices[0].mintedShares.toNumber() / Math.pow(10, 6)).to.equal(18.99956798544791)
+    expect(market.subMarkets[0].choices[0].fairLaunchPot.toNumber() / Math.pow(10, 6)).to.equal(50)
+    expect(marketPortfolio.subMarketPortfolio[0].choicePortfolio[0].shares.toNumber() / Math.pow(10, 6)).to.equal(18.99956798544791)
   });
 
   // it("buy bulk by shares", async () => {
@@ -490,7 +490,7 @@ describe("trading", () => {
     await program.methods
       .bulkSellByShares([
         {
-          amount: 1.88945,
+          amount: new anchor.BN(1.88945 * Math.pow(10, 6)),
           subMarketId: new anchor.BN(1),
           choiceId: new anchor.BN(1),
           requestedPricePerShare: 0.54332,
@@ -516,21 +516,21 @@ describe("trading", () => {
     const marketPortfolio = await program.account.marketPortfolio.fetch(marketPortfolioPDA);
     console.log(marketPortfolio.subMarketPortfolio[0].choicePortfolio)
 
-    expect(user.balance).to.equal(0.5433219287066832)
-    expect(market.subMarkets[0].choices.map(choice => choice.usdcPot).reduce((sum, current) => sum + current, 0) ).to.equal(109.40121754939676);
-    expect(market.subMarkets[0].choices[0].potShares).to.equal(91.40164956394885)
-    expect(market.subMarkets[0].choices[1].potShares).to.equal(106.67435652059035)
-    expect(market.subMarkets[0].choices[0].usdcPot).to.equal(59.40121754939677)
-    expect(market.subMarkets[0].choices[0].mintedShares).to.equal(17.99956798544791)
-    expect(market.subMarkets[0].choices[0].fairLaunchPot).to.equal(50)
-    expect(marketPortfolio.subMarketPortfolio[0].choicePortfolio[0].shares).to.equal(17.99956798544791)
+    expect(user.balance.toNumber() / Math.pow(10, 6)).to.equal(0.5433219287066832)
+    expect(market.subMarkets[0].choices.map(choice => choice.usdcPot).reduce((sum, current) => sum + current.toNumber(), 0) / Math.pow(10, 6)).to.equal(109.40121754939676);
+    expect(market.subMarkets[0].choices[0].potShares.toNumber() / Math.pow(10, 6)).to.equal(91.40164956394885)
+    expect(market.subMarkets[0].choices[1].potShares.toNumber() / Math.pow(10, 6)).to.equal(106.67435652059035)
+    expect(market.subMarkets[0].choices[0].usdcPot.toNumber() / Math.pow(10, 6)).to.equal(59.40121754939677)
+    expect(market.subMarkets[0].choices[0].mintedShares.toNumber() / Math.pow(10, 6)).to.equal(17.99956798544791)
+    expect(market.subMarkets[0].choices[0].fairLaunchPot.toNumber() / Math.pow(10, 6)).to.equal(50)
+    expect(marketPortfolio.subMarketPortfolio[0].choicePortfolio[0].shares.toNumber() / Math.pow(10, 6)).to.equal(17.99956798544791)
   });
 
   it("sells by shares 2", async () => {
     await program.methods
       .bulkSellByShares([
         {
-          amount: 5,
+          amount: new anchor.BN(5 * Math.pow(10, 6)),
           subMarketId: new anchor.BN(1),
           choiceId: new anchor.BN(1),
           requestedPricePerShare: 0.5202,
@@ -556,14 +556,14 @@ describe("trading", () => {
     const marketPortfolio = await program.account.marketPortfolio.fetch(marketPortfolioPDA);
     console.log(marketPortfolio.subMarketPortfolio[0].choicePortfolio)
 
-    expect(user.balance).to.equal(3.2202900575890783)
-    expect(market.subMarkets[0].choices.map(choice => choice.usdcPot).reduce((sum, current) => sum + current, 0) ).to.equal(104.046998880157446);
-    expect(market.subMarkets[0].choices[0].potShares).to.equal(96.08526840375981)
-    expect(market.subMarkets[0].choices[1].potShares).to.equal(104.04699888015743)
-    expect(market.subMarkets[0].choices[0].usdcPot).to.equal(54.046998880157446)
-    expect(market.subMarkets[0].choices[0].mintedShares).to.equal(7.961730476397619)
-    expect(market.subMarkets[0].choices[0].fairLaunchPot).to.equal(50)
-    expect(marketPortfolio.subMarketPortfolio[0].choicePortfolio[0].shares).to.equal(7.961730476397619)
+    expect(user.balance.toNumber() / Math.pow(10, 6)).to.equal(3.2202900575890783)
+    expect(market.subMarkets[0].choices.map(choice => choice.usdcPot).reduce((sum, current) => sum + current.toNumber(), 0) / Math.pow(10, 6)).to.equal(104.046998880157446);
+    expect(market.subMarkets[0].choices[0].potShares.toNumber() / Math.pow(10, 6)).to.equal(96.08526840375981)
+    expect(market.subMarkets[0].choices[1].potShares.toNumber() / Math.pow(10, 6)).to.equal(104.04699888015743)
+    expect(market.subMarkets[0].choices[0].usdcPot.toNumber() / Math.pow(10, 6)).to.equal(54.046998880157446)
+    expect(market.subMarkets[0].choices[0].mintedShares.toNumber() / Math.pow(10, 6)).to.equal(7.961730476397619)
+    expect(market.subMarkets[0].choices[0].fairLaunchPot.toNumber() / Math.pow(10, 6)).to.equal(50)
+    expect(marketPortfolio.subMarketPortfolio[0].choicePortfolio[0].shares.toNumber() / Math.pow(10, 6)).to.equal(7.961730476397619)
   });
 
   // it("sells by price", async () => {
@@ -609,7 +609,7 @@ describe("trading", () => {
     await program.methods
       .bulkSellByPrice([
         {
-          amount: 30,
+          amount: new anchor.BN(30 * Math.pow(10, 6)),
           subMarketId: new anchor.BN(1),
           choiceId: new anchor.BN(1),
           requestedPricePerShare: 0.2279,

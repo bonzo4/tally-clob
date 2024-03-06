@@ -35,7 +35,7 @@ pub fn resolve_market(
         .collect::<Vec<&mut ChoiceMarket>>();
     
 
-    let fee_price = losing_choices[0].usdc_pot * 0.1;
+    let fee_price = losing_choices[0].usdc_pot / 10;
 
     losing_choices[0].usdc_pot -= fee_price;
 
@@ -51,7 +51,7 @@ pub fn resolve_market(
 
     transfer (
         CpiContext::new(cpi_program, fee_cpi_accounts),
-        fee_price as u64 * 10_u64.pow(6)
+        fee_price as u64
     )?;
 
     Ok(())
