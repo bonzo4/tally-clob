@@ -182,15 +182,9 @@ impl SubMarket {
         msg!(&sell_price.to_string());
         let fee_price = sell_price / 200;
 
-        // if sell_price < 5.0 {
-        //     let difference = 5.0 - sell_price;
-        //     let reduction_factor = 0.1 * difference;
-        //     sell_price = sell_price * (1.0 - reduction_factor);
-        // }
-
         Ok(SellOrderValues {
             shares_to_sell,
-            sell_price: sell_price - fee_price,
+            sell_price,
             fee_price
         })
     }
@@ -246,10 +240,10 @@ impl SubMarket {
         self.choices
             .iter_mut()
             .for_each(|choice|{
-                choice.pot_shares -= final_order.price + final_order.fee_price;
+                choice.pot_shares -= final_order.price;
             });
 
-        self.get_choice(&final_order.choice_id)?.usdc_pot -= final_order.price + final_order.fee_price;
+        self.get_choice(&final_order.choice_id)?.usdc_pot -= final_order.price;
         self.get_choice(&final_order.choice_id)?.pot_shares += final_order.shares;
         self.get_choice(&final_order.choice_id)?.minted_shares -= final_order.shares;
 

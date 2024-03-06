@@ -74,7 +74,7 @@ pub fn bulk_sell_by_price(
             FinalOrder {
                 sub_market_id: order.sub_market_id, 
                 choice_id: order.choice_id, 
-                price: values.sell_price + values.fee_price, 
+                price: values.sell_price, 
                 shares: values.shares_to_sell,
                 fee_price: values.fee_price
             }
@@ -87,7 +87,7 @@ pub fn bulk_sell_by_price(
     ctx.accounts.market_portfolio
         .check_portfolio_shares(&final_orders)?;
 
-    let total_price_after_fees = order_values.iter().map(|order| order.sell_price).sum();
+    let total_price_after_fees = order_values.iter().map(|order| order.sell_price - order.fee_price).sum();
 
     // Make order
     // 1. update market_portfolio

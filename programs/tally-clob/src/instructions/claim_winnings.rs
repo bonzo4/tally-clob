@@ -24,9 +24,13 @@ pub fn claim_winnings(
     require!(!choice_market_portfolio.claimed, TallyClobErrors::AlreadyClaimed);
 
     let total_pot = ctx.accounts.market.get_sub_market(&sub_market_id)?.choices.iter()
-        .map(|choice| choice.usdc_pot)
+        .map(|choice| {
+            msg!(&choice.usdc_pot.to_string());
+            choice.usdc_pot
+        })
         .sum::<u128>();
     
+
     let winning_shares = ctx.accounts.market.get_sub_market(&sub_market_id)?.get_choice(&choice_id)?.minted_shares;
 
     let pot_portion = choice_market_portfolio.shares / winning_shares;
@@ -40,6 +44,8 @@ pub fn claim_winnings(
 
     // add to balance 
     ctx.accounts.user.add_to_balance(total_winnings)?;
+
+    // err!(TallyClobErrors::NotAValidOrder)
 
     Ok(())
 }

@@ -83,21 +83,21 @@ describe("wallet instructions", () => {
   it("adds to balance", async () => {
     // Add your test here.
     await program.methods
-      .addToBalance(new anchor.BN(10 * Math.pow(10, 6)))
+      .addToBalance(new anchor.BN(10 * Math.pow(10,6)))
       .signers([walletManagerKeypair])
       .accounts({ user: userWalletPDA, signer: walletManagerKeypair.publicKey })
       .rpc();
 
     const user = await program.account.user.fetch(userWalletPDA);
 
-    expect(Number(BigInt(user.balance.toNumber()) / BigInt(Math.pow(10, 6)))).to.equal(10);
+    expect(Number(BigInt(user.balance.toNumber()) / BigInt(Math.pow(10,6)))).to.equal(10);
   });
 
   it("unauthorized add", async () => {
     // Add your test here.
     try {
       await program.methods
-        .addToBalance(new anchor.BN(10 * Math.pow(10, 6)))
+        .addToBalance(new anchor.BN(10 * Math.pow(10,6)))
         .signers([userKeypair])
         .accounts({ user: userWalletPDA, signer: userKeypair.publicKey })
         .rpc();
@@ -112,7 +112,7 @@ describe("wallet instructions", () => {
   it("withdraws from balance", async () => {
     // Add your test here.
     await program.methods
-      .withdrawFromBalance(new anchor.BN(5 * Math.pow(10, 6)))
+      .withdrawFromBalance(new anchor.BN(5 * Math.pow(10,6)))
       .signers([walletManagerKeypair])
       .accounts({
         user: userWalletPDA,
@@ -126,13 +126,13 @@ describe("wallet instructions", () => {
 
     const user = await program.account.user.fetch(userWalletPDA);
 
-    expect(Number(BigInt(user.balance.toNumber()) / BigInt(Math.pow(10, 6)))).to.equal(5);
+    expect(Number(BigInt(user.balance.toNumber()) / BigInt(Math.pow(10,6)))).to.equal(5);
   });
 
   it("fails to withdraw", async () => {
     try {
       await program.methods
-        .withdrawFromBalance(new anchor.BN(10 * Math.pow(10, 6)))
+        .withdrawFromBalance(new anchor.BN(10 * Math.pow(10,6)))
         .signers([walletManagerKeypair])
         .accounts({
           user: userWalletPDA,
@@ -154,7 +154,7 @@ describe("wallet instructions", () => {
     // Add your test here.
     try {
       await program.methods
-        .withdrawFromBalance(new anchor.BN(10 * Math.pow(10, 6)))
+        .withdrawFromBalance(new anchor.BN(10 * Math.pow(10,6)))
         .signers([userKeypair])
         .accounts({
           user: userWalletPDA,

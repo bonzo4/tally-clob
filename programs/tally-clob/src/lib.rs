@@ -7,7 +7,7 @@ pub mod errors;
 pub mod state;
 pub mod utils;
 
-declare_id!("82sLeG3T3RR9iHJH8x3DgAroEGgvuGCyqdC5EVHz6L13");
+declare_id!("DnPqvbGTENrvc5jiyjqdmhpn6K26cFexTgKiUxGxgcnN");
 
 #[program]
 pub mod tally_clob {

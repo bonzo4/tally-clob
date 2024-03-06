@@ -62,7 +62,7 @@ describe("resolved", () => {
   const initMarketData = [
     {
       id: new anchor.BN(1),
-      initPot: new anchor.BN(100 * Math.pow(10, 6)),
+      initPot: new anchor.BN(100 * Math.pow(10,6)),
       choiceIds: [new anchor.BN(1), new anchor.BN(2)],
       fairLaunchStart: new anchor.BN(now.valueOf() / 1000 - 60 * 60 * 3),
       fairLaunchEnd: new anchor.BN(now.valueOf() / 1000 - 60 * 60 * 2),
@@ -71,7 +71,7 @@ describe("resolved", () => {
     },
     {
       id: new anchor.BN(2),
-      initPot: new anchor.BN(100 * Math.pow(10, 6)),
+      initPot: new anchor.BN(100 * Math.pow(10,6)),
       choiceIds: [new anchor.BN(1), new anchor.BN(2)],
       fairLaunchStart: new anchor.BN(now.valueOf() / 1000 - 60 * 60 * 3),
       fairLaunchEnd: new anchor.BN(now.valueOf() / 1000 - 60 * 60 * 2),
@@ -114,7 +114,7 @@ describe("resolved", () => {
     }
 
     await program.methods
-      .addToBalance(new anchor.BN(10 * Math.pow(10, 6)))
+      .addToBalance(new anchor.BN(5 * Math.pow(10,6)))
       .signers([walletManager])
       .accounts({
         user: userPDA,
@@ -129,18 +129,18 @@ describe("resolved", () => {
 
     const subMarket = market.subMarkets[0];
 
-    expect(subMarket.choices.map(choice => choice.usdcPot).reduce((sum, current) => sum + current.toNumber(), 0) / Math.pow(10, 6)).to.equal(100);
-    expect(user.balance.toNumber() / Math.pow(10, 6)).to.equal(10);
+    expect(user.balance.toNumber() / Math.pow(10,6)).to.equal(5)
+    expect(market.subMarkets[0].choices.map(choice => choice.usdcPot).reduce((sum, current) => sum + current.toNumber() / Math.pow(10,6), 0)).to.equal(100);
   });
 
   it("buy bulk by price", async () => {
     await program.methods
       .bulkBuyByPrice([
         {
-          amount: new anchor.BN(5 * Math.pow(10, 6)),
+          amount: new anchor.BN(5 * Math.pow(10,6)),
           subMarketId: new anchor.BN(1),
           choiceId: new anchor.BN(1),
-          requestedPricePerShare: 0.5121,
+          requestedPricePerShare: 0.51213,
         },
       ])
       .signers([walletManager])
@@ -157,22 +157,19 @@ describe("resolved", () => {
       .rpc().catch(err => console.log(err));
       
     const user = await program.account.user.fetch(userPDA);
-    console.log(user.balance)
     const market = await program.account.market.fetch(marketPDA);
-    console.log(market.subMarkets[0].choices)
     const marketPortfolio = await program.account.marketPortfolio.fetch(marketPortfolioPDA);
-    console.log(marketPortfolio.subMarketPortfolio[0].choicePortfolio)
 
-    expect(user.balance.toNumber() / Math.pow(10, 6)).to.equal(5)
-    expect(market.subMarkets[0].choices.map(choice => choice.usdcPot).reduce((sum, current) => sum + current.toNumber(), 0) / Math.pow(10, 6)).to.equal(104.975);
-    expect(market.subMarkets[0].choices[0].potShares.toNumber() / Math.pow(10, 6)).to.equal(95.92543201455207)
-    expect(market.subMarkets[0].choices[1].potShares.toNumber() / Math.pow(10, 6)).to.equal(104.975)
-    expect(market.subMarkets[0].choices[0].usdcPot.toNumber() / Math.pow(10, 6)).to.equal(54.975)
-    expect(market.subMarkets[0].choices[0].mintedShares.toNumber() / Math.pow(10, 6)).to.equal(9.049567985447922)
-    expect(market.subMarkets[0].choices[0].fairLaunchPot.toNumber() / Math.pow(10, 6)).to.equal(50)
-    expect(marketPortfolio.subMarketPortfolio[0].choicePortfolio[0].shares.toNumber() / Math.pow(10, 6)).to.equal(9.049567985447922)
-  });
-  
+    expect(user.balance.toNumber() / Math.pow(10,6)).to.equal(0)
+    expect(market.subMarkets[0].choices.map(choice => choice.usdcPot.toNumber()).reduce((sum, current) => sum + current / Math.pow(10,6),0)).to.equal(104.975);
+    expect(market.subMarkets[0].choices[0].potShares.toNumber() / Math.pow(10,6)).to.equal(95.260776)
+    expect(market.subMarkets[0].choices[1].potShares.toNumber() / Math.pow(10,6)).to.equal(104.975)
+    expect(market.subMarkets[0].choices[0].usdcPot.toNumber() / Math.pow(10,6)).to.equal(54.975)
+    expect(market.subMarkets[0].choices[0].mintedShares.toNumber() / Math.pow(10,6)).to.equal(9.714224)
+    expect(market.subMarkets[0].choices[0].fairLaunchPot.toNumber() / Math.pow(10,6)).to.equal(50)
+    expect(marketPortfolio.subMarketPortfolio[0].choicePortfolio[0].shares.toNumber() / Math.pow(10,6)).to.equal(9.714224)
+  })
+
   it("fails to claim winnings", async () => {
     try {
     await program.methods
@@ -208,6 +205,7 @@ describe("resolved", () => {
       .rpc().catch(err => console.log(err))
 
     const market = await program.account.market.fetch(marketPDA);
+    expect(market.subMarkets[0].choices.map(choice => choice.usdcPot.toNumber()).reduce((sum, current) => sum + current / Math.pow(10,6),0)).to.equal(99.975);
     expect(market.subMarkets[0].resolved).to.equal(true)
     expect(market.subMarkets[0].choices[0].winningChoice).to.equal(true)
   })
@@ -225,7 +223,6 @@ describe("resolved", () => {
             })
             .rpc();
     } catch (err) {
-        console.log(err)
         const error = err as anchor.AnchorError;
         let expectedMsg =
             "You do not have the authorization to use this instruction."
@@ -246,7 +243,6 @@ describe("resolved", () => {
             })
             .rpc();
     } catch (err) {
-        console.log(err)
         const error = err as anchor.AnchorError;
         let expectedMsg =
             "This is not a winning choice.";
@@ -269,8 +265,8 @@ describe("resolved", () => {
     const user = await program.account.user.fetch(userPDA);
     const marketPortfolio = await program.account.marketPortfolio.fetch(marketPortfolioPDA);
 
-    expect(user.balance.toNumber() / Math.pow(10, 6)).to.equal(104.975)
-    expect(marketPortfolio.subMarketPortfolio[0].choicePortfolio[0].shares.toNumber() / Math.pow(10, 6)).to.equal(0)
+    expect(user.balance.toNumber() / Math.pow(10,6)).to.equal(99.975)
+    expect(marketPortfolio.subMarketPortfolio[0].choicePortfolio[0].shares.toNumber() / Math.pow(10,6)).to.equal(0)
     expect(marketPortfolio.subMarketPortfolio[0].choicePortfolio[0].claimed).to.equal(true)
     
   })

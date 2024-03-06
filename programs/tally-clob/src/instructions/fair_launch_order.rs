@@ -51,17 +51,19 @@ pub fn fair_launch_order(
             let total_pot = new_choices.iter()
                 .map(|choice| choice.fair_launch_pot)
                 .sum::<u128>();
-            
             let total_pot_prec = PreciseNumber::new(total_pot).ok_or(TallyClobErrors::NotAValidOrder).unwrap();
+                                        // .checked_div(&usdc_decimal_factor).ok_or(TallyClobErrors::NotAValidOrder).unwrap();
 
-
+                                    
             let invariant = total_pot_prec.checked_pow(2).ok_or(TallyClobErrors::NotAValidOrder).unwrap();
             let pot_proportion = new_choices.iter()
                 .map(|choice|{
-                    PreciseNumber::new(((choice.fair_launch_pot as f64/ total_pot as f64) * 10_f64.powf(6.0)) as u128)
+                    PreciseNumber::new(((choice.fair_launch_pot as f64 / total_pot as f64) * 10_f64.powi(6)) as u128)
                         .ok_or(TallyClobErrors::NotAValidOrder).unwrap()
+                        // .checked_div(&usdc_decimal_factor).ok_or(TallyClobErrors::NotAValidOrder).unwrap()
                 })
                 .collect::<Vec<PreciseNumber>>();
+
 
             let proportion_product = pot_proportion[0].checked_mul(&pot_proportion[1]).ok_or(TallyClobErrors::NotAValidOrder).unwrap();
             let k = invariant.checked_div(&proportion_product).ok_or(TallyClobErrors::NotAValidOrder).unwrap();
@@ -75,8 +77,8 @@ pub fn fair_launch_order(
             let pot_shares0 = k_sqrt.checked_mul(&pot_proportion[1]).ok_or(TallyClobErrors::NotAValidOrder).unwrap();
             let pot_shares1 = k_sqrt.checked_mul(&pot_proportion[0]).ok_or(TallyClobErrors::NotAValidOrder).unwrap();
 
-            ctx.accounts.market.get_sub_market(&order.sub_market_id).unwrap().choices[0].pot_shares = pot_shares0.value.as_u128();
-            ctx.accounts.market.get_sub_market(&order.sub_market_id).unwrap().choices[1].pot_shares = pot_shares1.value.as_u128();
+            ctx.accounts.market.get_sub_market(&order.sub_market_id).unwrap().choices[0].pot_shares = pot_shares0.value.as_u128() / 10_u128.pow(12);
+            ctx.accounts.market.get_sub_market(&order.sub_market_id).unwrap().choices[1].pot_shares = pot_shares1.value.as_u128() / 10_u128.pow(12);
 
             
             ctx.accounts.market_portfolio
@@ -84,6 +86,7 @@ pub fn fair_launch_order(
                 .unwrap();
         });
 
+        // err!(TallyClobErrors::NotAValidOrder)
     Ok(())
 }
 
