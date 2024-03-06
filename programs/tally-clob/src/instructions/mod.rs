@@ -1,4 +1,5 @@
 pub use add_to_balance::*;
+pub use add_to_unreedeemable::*;
 pub use bulk_buy_by_shares::*;
 pub use bulk_buy_by_price::*;
 pub use bulk_sell_by_shares::*;
@@ -15,6 +16,7 @@ pub use fair_launch_order::*;
 
 
 pub mod add_to_balance;
+pub mod add_to_unreedeemable;
 pub mod withdraw_from_balance;
 pub mod bulk_buy_by_shares;
 pub mod bulk_buy_by_price;

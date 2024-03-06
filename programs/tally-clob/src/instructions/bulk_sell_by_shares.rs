@@ -106,7 +106,7 @@ pub fn bulk_sell_by_shares(
 
     transfer (
         CpiContext::new(cpi_program, fee_cpi_accounts),
-        total_fee_amount as u64
+        total_fee_amount as u64 / 10_u64.pow(3)
     )?;
 
     // err!(TallyClobErrors::NotAValidOrder)

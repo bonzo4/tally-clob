@@ -58,7 +58,7 @@ pub fn fair_launch_order(
             let invariant = total_pot_prec.checked_pow(2).ok_or(TallyClobErrors::NotAValidOrder).unwrap();
             let pot_proportion = new_choices.iter()
                 .map(|choice|{
-                    PreciseNumber::new(((choice.fair_launch_pot as f64 / total_pot as f64) * 10_f64.powi(6)) as u128)
+                    PreciseNumber::new(((choice.fair_launch_pot as f64 / total_pot as f64) * 10_f64.powi(9)) as u128)
                         .ok_or(TallyClobErrors::NotAValidOrder).unwrap()
                         // .checked_div(&usdc_decimal_factor).ok_or(TallyClobErrors::NotAValidOrder).unwrap()
                 })

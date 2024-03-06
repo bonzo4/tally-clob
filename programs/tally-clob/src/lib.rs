@@ -58,6 +58,16 @@ pub mod tally_clob {
         instructions::add_to_balance(ctx, amount)
     }
 
+    
+    pub fn add_to_unreedeemable(
+        ctx: Context<AddToUnreedeemable>,
+        amount: u128
+    ) -> Result<()> {
+        is_wallet_manager(ctx.accounts.signer.key())?;
+
+        instructions::add_to_unreedeemable(ctx, amount)
+    }
+
     pub fn withdraw_from_balance(
         ctx: Context<WithdrawFromBalance>,
         amount: u128

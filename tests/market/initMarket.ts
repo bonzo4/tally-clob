@@ -47,7 +47,7 @@ describe("init market", () => {
   const initMarketData = [
     {
       id: new anchor.BN(1),
-      initPot: new anchor.BN(100 * Math.pow(10,6)),
+      initPot: new anchor.BN(100 * Math.pow(10,9)),
       choiceIds: [new anchor.BN(1), new anchor.BN(2)],
       fairLaunchStart: new anchor.BN(now.valueOf()),
       fairLaunchEnd: new anchor.BN(now.valueOf()),
@@ -74,7 +74,7 @@ describe("init market", () => {
 
     const subMarket = market.subMarkets[0];
 
-    expect(Number(market.subMarkets[0].choices.map(choice => choice.usdcPot).reduce((sum, current) => BigInt(sum) + BigInt(current.toNumber()), BigInt(0)) / BigInt(Math.pow(10,6)))).to.equal(100);
+    expect(Number(market.subMarkets[0].choices.map(choice => choice.usdcPot).reduce((sum, current) => BigInt(sum) + BigInt(current.toNumber()), BigInt(0)) / BigInt(Math.pow(10,9)))).to.equal(100);
   });
 
   it("unauthorized create", async () => {

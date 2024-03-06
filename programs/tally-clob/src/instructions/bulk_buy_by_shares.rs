@@ -68,6 +68,7 @@ pub fn bulk_buy_by_shares(
     
     // 6. check if user has enough balance
     let total_price = order_values.iter().map(|values|values.buy_price + values.fee_price).sum();
+    require!(ctx.accounts.user.balance + ctx.accounts.user.unreedemable_balance >= total_price, TallyClobErrors::BalanceTooLow);
 
 
     // prep order
@@ -106,7 +107,7 @@ pub fn bulk_buy_by_shares(
 
     transfer (
         CpiContext::new(cpi_program, fee_cpi_accounts),
-        total_fee_amount as u64
+        total_fee_amount as u64 / 10_u64.pow(3)
     )?;
 
     Ok(())

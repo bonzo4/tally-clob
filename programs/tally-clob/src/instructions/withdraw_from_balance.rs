@@ -12,7 +12,7 @@ pub fn withdraw_from_balance(ctx: Context<WithdrawFromBalance>, amount: u128) ->
     require!(amount > 0, TallyClobErrors::AmountToWithdrawTooLow);
     require!(amount <= ctx.accounts.user.balance, TallyClobErrors::AmountToWithdrawTooGreat);
     
-    ctx.accounts.user.withdraw_from_balance(amount)?;
+    ctx.accounts.user.withdraw_real_balance(amount)?;
 
     let destination = &ctx.accounts.to_usdc_account;
     let source = &ctx.accounts.from_usdc_account;
